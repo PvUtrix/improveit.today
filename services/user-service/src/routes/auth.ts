@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jwt';
+import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { successResponse, errorResponse } from '@improveit/common';
 import { logger } from '../utils/logger';

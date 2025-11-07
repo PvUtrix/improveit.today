@@ -1,5 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import geoRoutes from './routes/geo';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -12,8 +14,13 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'geolocation-service' });
 });
 
-// Add your routes here
+app.use('/geo', geoRoutes);
 
 app.listen(PORT, () => {
-  console.log(`geolocation-service running on port ${PORT}`);
+  logger.info(`Geolocation Service running on port ${PORT}`);
+});
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received');
+  process.exit(0);
 });

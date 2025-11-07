@@ -1,5 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import voteRoutes from './routes/votes';
+import { db } from './db';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -12,8 +15,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'voting-service' });
 });
 
-// Add your routes here
+app.use('/votes', voteRoutes);
 
 app.listen(PORT, () => {
-  console.log(`voting-service running on port ${PORT}`);
+  logger.info(`Voting Service running on port ${PORT}`);
+});
+
+db.query('SELECT NOW()')
+  .then(() => logger.info('Database connected'))
+  .catch((err) => logger.error('Database error:', err));
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received');
+  process.exit(0);
 });
