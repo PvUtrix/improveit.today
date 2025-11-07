@@ -505,11 +505,9 @@ Built with cutting-edge open-source technologies:
 
 ---
 
-**Branch**: `claude/global-project-setup-011CUsdUrQwAQumUHRkuu67Y`
-
 **Status**: 🟢 **Foundation Complete - Active Development**
 
-**Last Commit**: Implement GitHub Spec-Kit with ADRs and API specs
+**Last Commit**: Update contributor attribution in ADRs to Project Lead
 
 ---
 
