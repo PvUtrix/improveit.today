@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2025-11-07
-decision-makers: [@system-architect]
+decision-makers: [Project Lead]
 ---
 
 # ADR-002: PostgreSQL + PostGIS as Primary Database
@@ -10,7 +10,7 @@ decision-makers: [@system-architect]
 
 **Status**: Accepted
 **Date**: 2025-11-07
-**Decision Makers**: System Architect
+**Decision Makers**: Project Lead
 
 ## Context
 
@@ -254,4 +254,4 @@ Shard by geographic region based on problem location.
 
 | Date | Changes | Author |
 |------|---------|--------|
-| 2025-11-07 | Initial version | System Architect |
+| 2025-11-07 | Initial version | Project Lead |

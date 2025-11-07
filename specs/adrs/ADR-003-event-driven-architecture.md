@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2025-11-07
-decision-makers: [@system-architect]
+decision-makers: [Project Lead]
 ---
 
 # ADR-003: Event-Driven Architecture with Kafka
@@ -10,7 +10,7 @@ decision-makers: [@system-architect]
 
 **Status**: Accepted
 **Date**: 2025-11-07
-**Decision Makers**: System Architect
+**Decision Makers**: Project Lead
 
 ## Context
 
@@ -295,4 +295,4 @@ consumer.run({
 
 | Date | Changes | Author |
 |------|---------|--------|
-| 2025-11-07 | Initial version | System Architect |
+| 2025-11-07 | Initial version | Project Lead |

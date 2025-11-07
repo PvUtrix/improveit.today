@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2025-11-07
-decision-makers: [@system-architect]
+decision-makers: [Project Lead]
 ---
 
 # ADR-001: Microservices Architecture
@@ -10,7 +10,7 @@ decision-makers: [@system-architect]
 
 **Status**: Accepted
 **Date**: 2025-11-07
-**Decision Makers**: System Architect
+**Decision Makers**: Project Lead
 
 ## Context
 
@@ -184,4 +184,4 @@ We will implement a **microservices architecture** with the following characteri
 
 | Date | Changes | Author |
 |------|---------|--------|
-| 2025-11-07 | Initial version | System Architect |
+| 2025-11-07 | Initial version | Project Lead |
