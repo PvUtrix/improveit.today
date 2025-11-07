@@ -507,7 +507,7 @@ Built with cutting-edge open-source technologies:
 
 **Status**: 🟢 **Foundation Complete - Active Development**
 
-**Last Commit**: Update contributor attribution in ADRs to Project Lead
+**Last Commit**: Update contributor attribution in ADRs
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2025-11-07
-decision-makers: [Project Lead]
+decision-makers: [Pavel Shershnev]
 ---
 
 # ADR-002: PostgreSQL + PostGIS as Primary Database
@@ -10,7 +10,7 @@ decision-makers: [Project Lead]
 
 **Status**: Accepted
 **Date**: 2025-11-07
-**Decision Makers**: Project Lead
+**Decision Makers**: Pavel Shershnev
 
 ## Context
 
@@ -254,4 +254,4 @@ Shard by geographic region based on problem location.
 
 | Date | Changes | Author |
 |------|---------|--------|
-| 2025-11-07 | Initial version | Project Lead |
+| 2025-11-07 | Initial version | Pavel Shershnev |

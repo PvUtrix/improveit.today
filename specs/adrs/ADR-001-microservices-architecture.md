@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2025-11-07
-decision-makers: [Project Lead]
+decision-makers: [Pavel Shershnev]
 ---
 
 # ADR-001: Microservices Architecture
@@ -10,7 +10,7 @@ decision-makers: [Project Lead]
 
 **Status**: Accepted
 **Date**: 2025-11-07
-**Decision Makers**: Project Lead
+**Decision Makers**: Pavel Shershnev
 
 ## Context
 
@@ -184,4 +184,4 @@ We will implement a **microservices architecture** with the following characteri
 
 | Date | Changes | Author |
 |------|---------|--------|
-| 2025-11-07 | Initial version | Project Lead |
+| 2025-11-07 | Initial version | Pavel Shershnev |
