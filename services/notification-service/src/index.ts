@@ -1,5 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import notificationRoutes from './routes/notifications';
+import { logger } from './utils/logger';
+import { startKafkaConsumer } from './consumers/eventConsumer';
 
 dotenv.config();
 
@@ -12,8 +15,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'notification-service' });
 });
 
-// Add your routes here
+app.use('/notifications', notificationRoutes);
+
+// Start Kafka consumer for automatic notifications
+startKafkaConsumer().catch((err) => {
+  logger.error('Failed to start Kafka consumer:', err);
+});
 
 app.listen(PORT, () => {
-  console.log(`notification-service running on port ${PORT}`);
+  logger.info(`Notification Service running on port ${PORT}`);
+});
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received');
+  process.exit(0);
 });
