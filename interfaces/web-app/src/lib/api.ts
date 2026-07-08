@@ -139,6 +139,57 @@ export interface Solver {
   verification_status: string;
 }
 
+// ---- Authorities & Dashboard ----
+export interface Authority {
+  id: string;
+  name: string;
+  type?: string;
+  jurisdiction_id: string;
+  jurisdiction_name?: string;
+  notification_threshold: number;
+  is_verified: boolean;
+  is_active: boolean;
+}
+
+export interface AuthorityDashboard {
+  totalProblems: number;
+  byStatus: Record<string, number>;
+  topCategories: { category: string; count: number }[];
+  resolutionTime: { avgDays: number | null; medianDays: number | null };
+  escalatedProblems: {
+    id: string;
+    title: string;
+    category: string;
+    status: string;
+    created_at: string;
+    upvotes: number;
+  }[];
+}
+
+export interface JurisdictionProblem {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+  address?: string;
+  created_at: string;
+  upvotes: number;
+  score: number;
+}
+
+export const authorityApi = {
+  list: () => unwrap<Authority[]>(api.get('/api/authorities?limit=100')),
+  get: (id: string) => unwrap<Authority>(api.get(`/api/authorities/${id}`)),
+  dashboard: (id: string) =>
+    unwrap<AuthorityDashboard>(api.get(`/api/authorities/${id}/dashboard`)),
+  problems: (id: string, status?: string) =>
+    unwrap<JurisdictionProblem[]>(
+      api.get(`/api/authorities/${id}/problems`, {
+        params: status ? { status, limit: 50 } : { limit: 50 },
+      })
+    ),
+};
+
 export const biddingApi = {
   listForProblem: (problemId: string) =>
     unwrap<Bid[]>(api.get(`/api/bids/problem/${problemId}`)),

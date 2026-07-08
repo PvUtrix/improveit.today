@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage';
 import MapView from './pages/MapView';
 import GlobeView from './pages/GlobeView';
 import ProblemDetail from './pages/ProblemDetail';
+import AuthorityDashboard from './pages/AuthorityDashboard';
 import Header from './components/Header';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route path="/map" element={<MapView />} />
         <Route path="/globe" element={<GlobeView />} />
         <Route path="/problem/:id" element={<ProblemDetail />} />
+        <Route path="/dashboard" element={<AuthorityDashboard />} />
       </Routes>
     </div>
   );

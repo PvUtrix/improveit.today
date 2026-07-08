@@ -138,13 +138,14 @@ Basic structure created, ready for implementation:
   - Real upvote / remove-vote against the Voting Service
   - Crowdfunding panel (start campaign, contribute, live progress bar, recent contributors) against the Payment Service
   - Solver marketplace panel (list bids, become a solver, submit bid, accept bid) against the Bidding Service
+- **Authority Dashboard** (`/dashboard`): pick an authority, see problems by status, top categories, median/avg resolution time, and an escalated-problems queue linking to detail — over the Authority Service
 - Typed API client (`src/lib/api.ts`) over the API gateway
 - React Query for data fetching and cache invalidation
 - Responsive design
 
 #### 🔨 **In Progress/Planned**
 
-- Authority Dashboard (backend `/authorities/:id/dashboard` ready; UI pending)
+- Report-a-problem flow from the web (currently Telegram only)
 - Telegram bot wiring to marketplace APIs
 - Mobile Apps (React Native)
 
