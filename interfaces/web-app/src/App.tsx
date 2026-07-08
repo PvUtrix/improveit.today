@@ -4,6 +4,7 @@ import MapView from './pages/MapView';
 import GlobeView from './pages/GlobeView';
 import ProblemDetail from './pages/ProblemDetail';
 import AuthorityDashboard from './pages/AuthorityDashboard';
+import ReportProblem from './pages/ReportProblem';
 import Header from './components/Header';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/globe" element={<GlobeView />} />
         <Route path="/problem/:id" element={<ProblemDetail />} />
         <Route path="/dashboard" element={<AuthorityDashboard />} />
+        <Route path="/report" element={<ReportProblem />} />
       </Routes>
     </div>
   );

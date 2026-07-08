@@ -33,7 +33,10 @@ function HomePage() {
       </div>
 
       <div style={{ marginTop: '48px', display: 'flex', gap: '16px' }}>
-        <Link to="/map" className="button">
+        <Link to="/report" className="button">
+          📢 Report a Problem
+        </Link>
+        <Link to="/map" className="button button-secondary">
           View Map
         </Link>
         <Link to="/globe" className="button button-secondary">

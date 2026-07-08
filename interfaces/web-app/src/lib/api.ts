@@ -37,10 +37,33 @@ export interface Problem {
   media?: { id: string; media_url: string }[];
 }
 
+export interface CreateProblemInput {
+  userId: string;
+  title: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  category: string;
+  mediaUrls?: string[];
+}
+
 export const problemsApi = {
   get: (id: string) => unwrap<Problem>(api.get(`/api/problems/${id}`)),
   list: () => unwrap<Problem[]>(api.get('/api/problems')),
+  create: (input: CreateProblemInput) =>
+    unwrap<Problem>(api.post('/api/problems', input)),
 };
+
+export const PROBLEM_CATEGORIES = [
+  { value: 'roads', label: '🛣️ Roads' },
+  { value: 'lighting', label: '💡 Lighting' },
+  { value: 'waste', label: '🗑️ Waste' },
+  { value: 'infrastructure', label: '🏗️ Infrastructure' },
+  { value: 'environment', label: '🌳 Environment' },
+  { value: 'safety', label: '🚨 Safety' },
+  { value: 'other', label: '📌 Other' },
+] as const;
 
 // ---- Votes ----
 export interface VoteStats {

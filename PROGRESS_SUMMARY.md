@@ -138,6 +138,7 @@ Basic structure created, ready for implementation:
   - Real upvote / remove-vote against the Voting Service
   - Crowdfunding panel (start campaign, contribute, live progress bar, recent contributors) against the Payment Service
   - Solver marketplace panel (list bids, become a solver, submit bid, accept bid) against the Bidding Service
+- **Report a Problem** (`/report`): citizen-facing form with browser geolocation ("use my location"), category picker, and client-side validation, posting to the Problem Service; the entry point of the whole flow now works from the web (previously Telegram-only)
 - **Authority Dashboard** (`/dashboard`): pick an authority, see problems by status, top categories, median/avg resolution time, and an escalated-problems queue linking to detail — over the Authority Service
 - Typed API client (`src/lib/api.ts`) over the API gateway
 - React Query for data fetching and cache invalidation
@@ -145,7 +146,7 @@ Basic structure created, ready for implementation:
 
 #### 🔨 **In Progress/Planned**
 
-- Report-a-problem flow from the web (currently Telegram only)
+- Media upload on the web report form (backend accepts `mediaUrls`; UI pending)
 - Telegram bot wiring to marketplace APIs
 - Mobile Apps (React Native)
 

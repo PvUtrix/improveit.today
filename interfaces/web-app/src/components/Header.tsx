@@ -14,6 +14,7 @@ function Header() {
         <Link to="/">Home</Link>
         <Link to="/map">Map</Link>
         <Link to="/globe">Globe</Link>
+        <Link to="/report">Report</Link>
         <Link to="/dashboard">Authorities</Link>
         <a href="/prototype/">Prototype</a>
         {user ? (

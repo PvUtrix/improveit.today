@@ -569,3 +569,37 @@ body {
   color: #777;
   margin-top: 4px;
 }
+
+/* ---- Report a problem form ---- */
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 560px;
+}
+
+.report-form .field > span {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.location-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.location-coords {
+  font-size: 13px;
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.latlng-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
