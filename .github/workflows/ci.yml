@@ -72,6 +72,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build shared packages (services import @improveit/common from dist)
+        run: npx turbo run build --filter=@improveit/common
+
       - name: Apply database schema
         run: PGPASSWORD=dev-password psql -h localhost -U improveit -d improveit_dev -f packages/database/schemas/001_initial_schema.sql
 
