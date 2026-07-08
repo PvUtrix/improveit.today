@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authority-service
+  labels:
+    app: authority-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: authority-service
+  template:
+    metadata:
+      labels:
+        app: authority-service
+    spec:
+      containers:
+        - name: authority-service
+          image: ghcr.io/pvutrix/improveit/authority-serviceatest
+          ports:
+            - containerPort: 8005
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: authority-service-dsn
+            - name: KAFKA_BROKERS
+              value: "improveit-cluster-kafka-bootstrap.kafka.svc:9092"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authority-service
+spec:
+  selector:
+    app: authority-service
+  ports:
+    - protocol: TCP
+      port: 8005
+      targetPort: 8005
+  type: ClusterIP

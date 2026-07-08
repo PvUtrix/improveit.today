@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voting-service
+  labels:
+    app: voting-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: voting-service
+  template:
+    metadata:
+      labels:
+        app: voting-service
+    spec:
+      containers:
+        - name: voting-service
+          image: ghcr.io/pvutrix/improveit/voting-service:latest
+          ports:
+            - containerPort: 8003
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: voting-service-dsn
+            - name: KAFKA_BROKERS
+              value: "improveit-cluster-kafka-bootstrap.kafka.svc:9092"
+            - name: REDIS_URL
+              value: "redis://improveit-redis-master.default.svc:6379"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: voting-service
+spec:
+  selector:
+    app: voting-service
+  ports:
+    - protocol: TCP
+      port: 8003
+      targetPort: 8003
+  type: ClusterIP

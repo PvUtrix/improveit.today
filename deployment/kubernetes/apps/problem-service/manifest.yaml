@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: problem-service
+  labels:
+    app: problem-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: problem-service
+  template:
+    metadata:
+      labels:
+        app: problem-service
+    spec:
+      containers:
+        - name: problem-service
+          image: ghcr.io/pvutrix/improveit/problem-service:latest
+          ports:
+            - containerPort: 8002
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: problem-service-dsn
+            - name: KAFKA_BROKERS
+              value: "improveit-cluster-kafka-bootstrap.kafka.svc:9092"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: problem-service
+spec:
+  selector:
+    app: problem-service
+  ports:
+    - protocol: TCP
+      port: 8002
+      targetPort: 8002
+  type: ClusterIP
