@@ -81,10 +81,10 @@ router.post('/send', async (req, res) => {
 
     logger.info(`Notification sent to user ${userId}: ${type}`);
 
-    res.json(successResponse({ results }));
+    return res.json(successResponse({ results }));
   } catch (error: any) {
     logger.error('Send notification error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to send notification')
     );
   }
@@ -110,10 +110,10 @@ router.get('/user/:userId', async (req, res) => {
 
     const result = await db.query(query, [userId, parseInt(limit as string)]);
 
-    res.json(successResponse(result.rows));
+    return res.json(successResponse(result.rows));
   } catch (error: any) {
     logger.error('Get notifications error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to get notifications')
     );
   }
@@ -137,10 +137,10 @@ router.patch('/:notificationId/read', async (req, res) => {
       );
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error: any) {
     logger.error('Mark read error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to mark notification as read')
     );
   }
@@ -158,10 +158,10 @@ router.post('/user/:userId/read-all', async (req, res) => {
       [userId]
     );
 
-    res.json(successResponse({ marked: result.rowCount }));
+    return res.json(successResponse({ marked: result.rowCount }));
   } catch (error: any) {
     logger.error('Mark all read error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to mark all as read')
     );
   }
@@ -190,10 +190,10 @@ router.get('/preferences/:userId', async (req, res) => {
       return res.json(successResponse(created.rows[0]));
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error: any) {
     logger.error('Get preferences error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to get preferences')
     );
   }
@@ -223,10 +223,10 @@ router.patch('/preferences/:userId', async (req, res) => {
       );
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error: any) {
     logger.error('Update preferences error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to update preferences')
     );
   }

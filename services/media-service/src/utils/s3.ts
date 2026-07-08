@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl as awsGetSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { logger } from './logger';
 
@@ -7,7 +7,7 @@ const S3_BUCKET = process.env.S3_BUCKET || 'improveit-dev';
 const S3_REGION = process.env.S3_REGION || 'us-east-1';
 const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY || 'minioadmin';
 const S3_SECRET_KEY = process.env.S3_SECRET_KEY || 'minioadmin';
-const S3_USE_SSL = process.env.S3_USE_SSL === 'true';
+
 const CDN_URL = process.env.CDN_URL || S3_ENDPOINT;
 
 export const s3Client = new S3Client({

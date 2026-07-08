@@ -49,10 +49,10 @@ router.post('/', async (req, res) => {
 
     logger.info(`Problem created: ${problem.id}`);
 
-    res.status(201).json(successResponse(problem));
+    return res.status(201).json(successResponse(problem));
   } catch (error: any) {
     logger.error('Create problem error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to create problem')
     );
   }
@@ -96,10 +96,10 @@ router.get('/:id', async (req, res) => {
 
     problem.media = mediaResult.rows;
 
-    res.json(successResponse(problem));
+    return res.json(successResponse(problem));
   } catch (error: any) {
     logger.error('Get problem error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to fetch problem')
     );
   }
@@ -177,12 +177,12 @@ router.get('/', async (req, res) => {
     const countResult = await db.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].count);
 
-    res.json(
+    return res.json(
       successResponse(result.rows, getPaginationMeta(total, page, limit))
     );
   } catch (error: any) {
     logger.error('List problems error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to fetch problems')
     );
   }
@@ -220,10 +220,10 @@ router.patch('/:id', async (req, res) => {
       );
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error: any) {
     logger.error('Update problem error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to update problem')
     );
   }
@@ -245,10 +245,10 @@ router.delete('/:id', async (req, res) => {
       );
     }
 
-    res.json(successResponse({ id: result.rows[0].id }));
+    return res.json(successResponse({ id: result.rows[0].id }));
   } catch (error: any) {
     logger.error('Delete problem error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to delete problem')
     );
   }

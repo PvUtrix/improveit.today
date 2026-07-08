@@ -1,9 +1,9 @@
-import { Telegraf, Markup, Context } from 'telegraf';
+import { Telegraf, Markup } from 'telegraf';
 import { message } from 'telegraf/filters';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import { logger } from './utils/logger';
-import { PROBLEM_CATEGORIES, CATEGORY_ICONS } from '@improveit/common';
+import { CATEGORY_ICONS } from '@improveit/common';
 
 dotenv.config();
 
@@ -130,7 +130,7 @@ bot.on(message('location'), async (ctx) => {
   const session = userSessions.get(userId);
 
   if (!session || session.state !== 'awaiting_location') {
-    return ctx.reply('Please use /report first to start reporting a problem.');
+    { await ctx.reply('Please use /report first to start reporting a problem.'); return; }
   }
 
   const { latitude, longitude } = ctx.message.location;
@@ -193,36 +193,37 @@ bot.on(message('text'), async (ctx) => {
 
   // Handle menu buttons
   if (text === '📝 Report Problem') {
-    return ctx.telegram.sendMessage(userId, '/report');
+    { await ctx.telegram.sendMessage(userId, '/report'); return; }
   }
 
   if (text === '🗺️ Browse Map') {
-    return ctx.reply('Opening map... (Web app link here)');
+    { await ctx.reply('Opening map... (Web app link here)'); return; }
   }
 
   if (text === '📊 My Reports') {
     // Fetch user's problems
-    return ctx.reply('Fetching your reports...');
+    { await ctx.reply('Fetching your reports...'); return; }
   }
 
   if (text === '⬆️ My Votes') {
-    return ctx.reply('Fetching problems you voted for...');
+    { await ctx.reply('Fetching problems you voted for...'); return; }
   }
 
   if (text === '👤 Profile') {
-    return ctx.reply('Your profile...');
+    { await ctx.reply('Your profile...'); return; }
   }
 
   if (text === '❓ Help') {
-    return ctx.telegram.sendMessage(userId, '/help');
+    { await ctx.telegram.sendMessage(userId, '/help'); return; }
   }
 
   if (text === '❌ Cancel') {
     userSessions.delete(userId);
-    return ctx.reply(
+    await ctx.reply(
       'Operation cancelled.',
       getMainMenuKeyboard()
     );
+    return;
   }
 
   if (text === '⏭️ Skip Photo') {
@@ -230,12 +231,13 @@ bot.on(message('text'), async (ctx) => {
       session.state = 'awaiting_description';
       userSessions.set(userId, session);
 
-      return ctx.reply(
+      await ctx.reply(
         `📝 Please describe the problem in a few sentences:`,
         Markup.keyboard([['❌ Cancel']])
           .resize()
           .oneTime()
       );
+      return;
     }
   }
 
@@ -246,12 +248,13 @@ bot.on(message('text'), async (ctx) => {
 
     userSessions.set(userId, session);
 
-    return ctx.reply(
+    await ctx.reply(
       `✅ Description received!
 
 🏷️ What category best describes this problem?`,
       getCategoryKeyboard()
     );
+    return;
   }
 });
 
@@ -261,7 +264,7 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
   const session = userSessions.get(userId);
 
   if (!session || session.state !== 'awaiting_category') {
-    return ctx.answerCbQuery('Please start a new report with /report');
+    { await ctx.answerCbQuery('Please start a new report with /report'); return; }
   }
 
   const category = ctx.match[1];
@@ -314,10 +317,8 @@ Your problem is now visible on the map. Share it with neighbors to get more vote
   } catch (error: any) {
     logger.error('Failed to create problem:', error);
 
-    await ctx.editMessageText(
-      '❌ Failed to submit problem. Please try again later.',
-      getMainMenuKeyboard()
-    );
+    await ctx.editMessageText('❌ Failed to submit problem. Please try again later.');
+      await ctx.reply('What would you like to do next?', getMainMenuKeyboard());
 
     userSessions.delete(userId);
   }

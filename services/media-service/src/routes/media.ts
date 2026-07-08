@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { successResponse, errorResponse } from '@improveit/common';
 import { logger } from '../utils/logger';
-import { s3Client, uploadToS3, deleteFromS3, getSignedUrl } from '../utils/s3';
+import { uploadToS3, deleteFromS3, getSignedUrl } from '../utils/s3';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -14,7 +14,7 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     // Accept images only
     if (!file.mimetype.startsWith('image/')) {
       return cb(new Error('Only image files are allowed'));
@@ -74,10 +74,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     logger.info(`File uploaded: ${fileId}`);
 
-    res.status(201).json(successResponse(metadata));
+    return res.status(201).json(successResponse(metadata));
   } catch (error: any) {
     logger.error('Upload error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to upload file')
     );
   }
@@ -137,10 +137,10 @@ router.post('/upload-multiple', upload.array('files', 10), async (req, res) => {
 
     logger.info(`${results.length} files uploaded`);
 
-    res.status(201).json(successResponse(results));
+    return res.status(201).json(successResponse(results));
   } catch (error: any) {
     logger.error('Multiple upload error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to upload files')
     );
   }
@@ -163,7 +163,7 @@ router.post('/signed-url', async (req, res) => {
 
     const signedUrl = await getSignedUrl(key, contentType);
 
-    res.json(
+    return res.json(
       successResponse({
         uploadUrl: signedUrl,
         key,
@@ -173,7 +173,7 @@ router.post('/signed-url', async (req, res) => {
     );
   } catch (error: any) {
     logger.error('Signed URL error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to generate signed URL')
     );
   }
@@ -192,10 +192,10 @@ router.delete('/:fileId', async (req, res) => {
 
     logger.info(`File deleted: ${fileId}`);
 
-    res.json(successResponse({ deleted: true }));
+    return res.json(successResponse({ deleted: true }));
   } catch (error: any) {
     logger.error('Delete error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to delete file')
     );
   }

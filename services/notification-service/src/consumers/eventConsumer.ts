@@ -18,7 +18,7 @@ export async function startKafkaConsumer() {
     logger.info('Kafka consumer started');
 
     await consumer.run({
-      eachMessage: async ({ topic, partition, message }) => {
+      eachMessage: async ({ message }) => {
         try {
           const event = JSON.parse(message.value?.toString() || '{}');
 

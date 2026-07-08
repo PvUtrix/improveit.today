@@ -46,10 +46,10 @@ router.get('/geocode', async (req, res) => {
 
     logger.info(`Geocoded address: ${address}`);
 
-    res.json(successResponse(results));
+    return res.json(successResponse(results));
   } catch (error: any) {
     logger.error('Geocoding error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to geocode address')
     );
   }
@@ -95,10 +95,10 @@ router.get('/reverse-geocode', async (req, res) => {
 
     logger.info(`Reverse geocoded: ${lat}, ${lon}`);
 
-    res.json(successResponse(result));
+    return res.json(successResponse(result));
   } catch (error: any) {
     logger.error('Reverse geocoding error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to reverse geocode')
     );
   }
@@ -163,13 +163,13 @@ router.get('/jurisdiction', async (req, res) => {
 
     logger.info(`Found jurisdiction: ${result.rows[0].name}`);
 
-    res.json(successResponse({
+    return res.json(successResponse({
       source: 'database',
       ...result.rows[0],
     }));
   } catch (error: any) {
     logger.error('Find jurisdiction error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to find jurisdiction')
     );
   }
@@ -197,14 +197,14 @@ router.get('/distance', async (req, res) => {
 
     const distanceMeters = result.rows[0].distance;
 
-    res.json(successResponse({
+    return res.json(successResponse({
       distanceMeters: Math.round(distanceMeters),
       distanceKilometers: (distanceMeters / 1000).toFixed(2),
       distanceMiles: (distanceMeters / 1609.34).toFixed(2),
     }));
   } catch (error: any) {
     logger.error('Distance calculation error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to calculate distance')
     );
   }

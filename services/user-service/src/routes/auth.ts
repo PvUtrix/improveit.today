@@ -62,13 +62,13 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRY || '15m' }
+      { expiresIn: (process.env.JWT_EXPIRY || '15m') as jwt.SignOptions['expiresIn'] }
     );
 
-    res.status(201).json(successResponse({ user, token }));
+    return res.status(201).json(successResponse({ user, token }));
   } catch (error: any) {
     logger.error('Registration error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Registration failed')
     );
   }
@@ -118,12 +118,12 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRY || '15m' }
+      { expiresIn: (process.env.JWT_EXPIRY || '15m') as jwt.SignOptions['expiresIn'] }
     );
 
     logger.info(`User logged in: ${email}`);
 
-    res.json(successResponse({
+    return res.json(successResponse({
       user: {
         id: user.id,
         email: user.email,
@@ -134,7 +134,7 @@ router.post('/login', async (req, res) => {
     }));
   } catch (error: any) {
     logger.error('Login error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Login failed')
     );
   }

@@ -84,10 +84,10 @@ router.post('/', async (req, res) => {
 
     logger.info(`Vote cast: ${voteType} on problem ${problemId} by user ${userId}`);
 
-    res.status(201).json(successResponse({ vote, stats }));
+    return res.status(201).json(successResponse({ vote, stats }));
   } catch (error: any) {
     logger.error('Vote error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to cast vote')
     );
   }
@@ -120,10 +120,10 @@ router.delete('/', async (req, res) => {
 
     logger.info(`Vote removed: problem ${problemId} by user ${userId}`);
 
-    res.json(successResponse({ removed: true }));
+    return res.json(successResponse({ removed: true }));
   } catch (error: any) {
     logger.error('Remove vote error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to remove vote')
     );
   }
@@ -143,10 +143,10 @@ router.get('/problem/:problemId', async (req, res) => {
       return res.json(successResponse({ upvotes: 0, downvotes: 0, score: 0 }));
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error: any) {
     logger.error('Get votes error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to get vote counts')
     );
   }
@@ -168,10 +168,10 @@ router.get('/user/:userId/problem/:problemId', async (req, res) => {
       );
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error: any) {
     logger.error('Get user vote error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to get vote')
     );
   }
@@ -195,10 +195,10 @@ router.get('/trending', async (req, res) => {
       [limit]
     );
 
-    res.json(successResponse(result.rows));
+    return res.json(successResponse(result.rows));
   } catch (error: any) {
     logger.error('Get trending error:', error);
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to get trending problems')
     );
   }

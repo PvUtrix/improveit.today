@@ -26,9 +26,9 @@ router.get('/:id', async (req, res) => {
       );
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error) {
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to fetch user')
     );
   }
@@ -59,9 +59,9 @@ router.patch('/:id', async (req, res) => {
       );
     }
 
-    res.json(successResponse(result.rows[0]));
+    return res.json(successResponse(result.rows[0]));
   } catch (error) {
-    res.status(500).json(
+    return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Failed to update profile')
     );
   }
