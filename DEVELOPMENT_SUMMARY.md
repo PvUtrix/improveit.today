@@ -103,15 +103,17 @@ npm run db:rollback   # Rollback migrations
 - Status tracking
 - Geographic filtering
 
-#### **Service Scaffolds Ready** (10 services):
+#### **Also Implemented** (see PROGRESS_SUMMARY.md for details):
 - Voting Service (8003)
 - Geolocation Service (8004)
 - Authority Service (8005)
 - Payment Service (8006)
 - Bidding Service (8007)
 - Notification Service (8008)
-- Search Service (8009)
 - Media Service (8010)
+
+#### **Service Scaffolds Ready** (3 services):
+- Search Service (8009)
 - Analytics Service (8011)
 - Moderation Service (8012)
 

@@ -33,7 +33,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 
     const decoded = jwt.verify(token, secret) as JwtPayload;
     req.user = decoded;
-    next();
+    return next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       return res.status(401).json({

@@ -1,5 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import authorityRoutes from './routes/authorities';
+import jurisdictionRoutes from './routes/jurisdictions';
+import { db } from './db';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -8,12 +12,22 @@ const PORT = process.env.PORT || 8005;
 
 app.use(express.json());
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'authority-service' });
 });
 
-// Add your routes here
+app.use('/authorities', authorityRoutes);
+app.use('/jurisdictions', jurisdictionRoutes);
 
 app.listen(PORT, () => {
-  console.log(`authority-service running on port ${PORT}`);
+  logger.info(`Authority Service running on port ${PORT}`);
+});
+
+db.query('SELECT NOW()')
+  .then(() => logger.info('Database connected'))
+  .catch((err) => logger.error('Database error:', err));
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received');
+  process.exit(0);
 });

@@ -33,7 +33,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Request logging
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
     userAgent: req.get('user-agent'),
@@ -42,18 +42,21 @@ app.use((req, res, next) => {
 });
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Service routes (with proxy)
-const services = [
+// Service routes (with proxy). Services mount their routers at the resource
+// path (e.g. /votes), so the default rewrite only strips the /api prefix.
+// A custom `rewriteTo` maps gateway paths that differ from the service mount.
+const services: { path: string; target?: string; rewriteTo?: string }[] = [
   { path: '/api/users', target: process.env.USER_SERVICE_URL },
   { path: '/api/auth', target: process.env.USER_SERVICE_URL },
   { path: '/api/problems', target: process.env.PROBLEM_SERVICE_URL },
   { path: '/api/votes', target: process.env.VOTING_SERVICE_URL },
-  { path: '/api/geocode', target: process.env.GEOLOCATION_SERVICE_URL },
+  { path: '/api/geocode', target: process.env.GEOLOCATION_SERVICE_URL, rewriteTo: '/geo' },
   { path: '/api/authorities', target: process.env.AUTHORITY_SERVICE_URL },
+  { path: '/api/jurisdictions', target: process.env.AUTHORITY_SERVICE_URL },
   { path: '/api/payments', target: process.env.PAYMENT_SERVICE_URL },
   { path: '/api/crowdfunding', target: process.env.PAYMENT_SERVICE_URL },
   { path: '/api/bids', target: process.env.BIDDING_SERVICE_URL },
@@ -73,11 +76,11 @@ app.use((req, res, next) => {
   if (!isPublicRoute) {
     return authMiddleware(req, res, next);
   }
-  next();
+  return next();
 });
 
 // Setup proxies
-services.forEach(({ path, target }) => {
+services.forEach(({ path, target, rewriteTo }) => {
   if (!target) {
     logger.warn(`No target configured for ${path}`);
     return;
@@ -88,10 +91,12 @@ services.forEach(({ path, target }) => {
     createProxyMiddleware({
       target,
       changeOrigin: true,
+      // Keep the resource segment: /api/votes/... → /votes/... (services
+      // mount routers at /<resource>, not at the root).
       pathRewrite: {
-        [`^${path}`]: '',
+        [`^${path}`]: rewriteTo ?? path.replace(/^\/api/, ''),
       },
-      onError: (err, req, res) => {
+      onError: (err, _req, res) => {
         logger.error(`Proxy error for ${path}:`, err);
         res.status(503).json({
           success: false,
@@ -109,7 +114,7 @@ services.forEach(({ path, target }) => {
 app.use(errorHandler);
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({
     success: false,
     error: {

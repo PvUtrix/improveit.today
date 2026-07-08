@@ -90,6 +90,9 @@ cp specs/templates/feature-template.md specs/features/feature-name.md
 - [Voting Service API](./api/voting-service-api.md)
 - [Problem Service API](./api/problem-service-api.md)
 - [User Service API](./api/user-service-api.md)
+- [Authority Service API](./api/authority-service-api.md)
+- [Bidding Service API](./api/bidding-service-api.md)
+- [Payment Service API](./api/payment-service-api.md)
 
 ### Feature Specifications
 - [Problem Reporting Flow](./features/problem-reporting.md)

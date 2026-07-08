@@ -1,5 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import solverRoutes from './routes/solvers';
+import bidRoutes from './routes/bids';
+import { db } from './db';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -8,12 +12,22 @@ const PORT = process.env.PORT || 8007;
 
 app.use(express.json());
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'bidding-service' });
 });
 
-// Add your routes here
+app.use('/solvers', solverRoutes);
+app.use('/bids', bidRoutes);
 
 app.listen(PORT, () => {
-  console.log(`bidding-service running on port ${PORT}`);
+  logger.info(`Bidding Service running on port ${PORT}`);
+});
+
+db.query('SELECT NOW()')
+  .then(() => logger.info('Database connected'))
+  .catch((err) => logger.error('Database error:', err));
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received');
+  process.exit(0);
 });

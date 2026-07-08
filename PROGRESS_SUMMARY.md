@@ -1,7 +1,7 @@
 # ImproveIt.Today - Progress Summary
 
-**Last Updated**: 2025-11-07
-**Status**: ✅ Foundation Complete + Core Services Implemented + Specifications Complete
+**Last Updated**: 2026-07-08
+**Status**: ✅ Foundation Complete + MVP Services Implemented + Specifications Complete
 
 ---
 
@@ -20,7 +20,7 @@ A production-ready, globally-scalable service desk platform with:
 
 ## 📊 Implementation Status
 
-### Services: **7 of 13 Fully Implemented** (54%)
+### Services: **10 of 13 Fully Implemented** (77%)
 
 #### ✅ **Fully Implemented Services**
 
@@ -82,12 +82,31 @@ A production-ready, globally-scalable service desk platform with:
 - Read/unread tracking
 - Authority alerts
 
-#### 🏗️ **Service Scaffolds Ready** (46%)
+**8. Authority Service** (Port 8005) ⭐ NEW
+- Authority registration, verification, and management
+- Jurisdiction CRUD with GeoJSON boundaries (PostGIS)
+- Point-in-polygon jurisdiction lookup for problem routing
+- Authority dashboard (problem stats, resolution times, escalations)
+- Per-authority notification thresholds
+- Kafka events (authority.registered, authority.verified)
+
+**9. Bidding Service** (Port 8007) ⭐ NEW
+- Solver profiles (individuals, teams, companies, NGOs)
+- Bid submission with cost breakdown and warranty terms
+- Transactional bid acceptance (rejects competitors, moves problem to in_progress)
+- Reviews with aggregate solver rating recomputation
+- Kafka events (solver.registered, bid.submitted, bid.accepted)
+
+**10. Payment Service** (Port 8006) ⭐ NEW
+- Crowdfunding campaigns per problem with funded-threshold detection
+- Contributions via provider abstraction (mock for dev, Stripe-ready)
+- Transaction history and provider webhook handling
+- Escrow release to solvers on verified resolution
+- Kafka events (campaign.created/funded/cancelled, contribution.completed, escrow.released)
+
+#### 🏗️ **Service Scaffolds Ready** (23%)
 
 Basic structure created, ready for implementation:
-- Authority Service (Port 8005)
-- Payment Service (Port 8006)
-- Bidding Service (Port 8007)
 - Search Service (Port 8009)
 - Analytics Service (Port 8011)
 - Moderation Service (Port 8012)
@@ -111,20 +130,22 @@ Basic structure created, ready for implementation:
 
 **Web Application**
 - React 18 + Vite
+- **Auth**: Login/register modal, JWT stored in a persisted Zustand store, bearer token attached to every API call via an axios interceptor
 - **Home Page**: Feature overview
-- **Map View**: Interactive Mapbox with:
-  - Problem markers (color-coded)
-  - Vote counts displayed
-  - Click for details
-  - Geographic navigation
+- **Map View**: Interactive Mapbox with color-coded markers, vote counts, and router navigation to detail
 - **Globe View**: 3D Earth visualization (Three.js)
-- **Problem Detail**: Full information display
-- React Query for data fetching
+- **Problem Detail** — live problem lifecycle hub wired to the backend:
+  - Real upvote / remove-vote against the Voting Service
+  - Crowdfunding panel (start campaign, contribute, live progress bar, recent contributors) against the Payment Service
+  - Solver marketplace panel (list bids, become a solver, submit bid, accept bid) against the Bidding Service
+- Typed API client (`src/lib/api.ts`) over the API gateway
+- React Query for data fetching and cache invalidation
 - Responsive design
 
 #### 🔨 **In Progress/Planned**
 
-- Authority Dashboard
+- Authority Dashboard (backend `/authorities/:id/dashboard` ready; UI pending)
+- Telegram bot wiring to marketplace APIs
 - Mobile Apps (React Native)
 
 ---
@@ -166,6 +187,9 @@ Professional technical specifications following industry standards:
 
 **API Specifications**
 - ✅ Voting Service API v1.0.0
+- ✅ Authority Service API v1.0.0
+- ✅ Bidding Service API v1.0.0
+- ✅ Payment Service API v1.0.0
   - All endpoints documented
   - Request/response examples
   - Data models
@@ -307,47 +331,35 @@ GitHub Commits:           8+
 
 ### **High Priority - Complete MVP**
 
-1. **Authority Service**
-   - CRUD for authorities
-   - Jurisdiction management
-   - Dashboard backend
+1. **Live Stripe Integration**
+   - Implement StripePaymentProvider (abstraction already in place)
+   - Webhook signature verification
 
-2. **Payment Service**
-   - Stripe integration
-   - Crowdfunding campaigns
-   - Escrow system
-
-3. **Bidding Service**
-   - Solver profiles
-   - Bid management
-   - Selection workflow
+2. **Integration & Polish**
+   - Connect Telegram bot to new marketplace APIs
+   - Add auth flows to web app
+   - End-to-end testing against Docker stack
 
 ### **Medium Priority**
 
-4. **Search Service**
+3. **Search Service**
    - Elasticsearch integration
    - Full-text search
    - Filters and facets
 
-5. **Analytics Service**
+4. **Analytics Service**
    - Statistics aggregation
    - Trend analysis
    - Impact metrics
 
-6. **Integration & Polish**
-   - Connect Telegram bot to APIs
-   - Add auth to web app
-   - Enhanced 3D globe
-   - Comprehensive testing
-
 ### **Lower Priority**
 
-7. **Moderation Service**
+5. **Moderation Service**
    - Content filtering
    - Spam detection
    - Report handling
 
-8. **Mobile Apps**
+6. **Mobile Apps**
    - React Native iOS/Android
    - Push notifications
    - Offline support
