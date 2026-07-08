@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
@@ -96,6 +96,9 @@ services.forEach(({ path, target, rewriteTo }) => {
       pathRewrite: {
         [`^${path}`]: rewriteTo ?? path.replace(/^\/api/, ''),
       },
+      // express.json() consumes the request stream before the proxy runs;
+      // re-serialize the parsed body so proxied POST/PATCH bodies aren't lost.
+      onProxyReq: fixRequestBody,
       onError: (err, _req, res) => {
         logger.error(`Proxy error for ${path}:`, err);
         res.status(503).json({
