@@ -1,0 +1,202 @@
+// Sample data for ImproveIt.Today citizen prototype
+// Coordinates are 0-100 in the stylized SVG city space.
+
+window.CATEGORIES = {
+  roads:    { label: "Roads",        color: "#c2410c", glyph: "▲" },
+  lighting: { label: "Lighting",     color: "#b45309", glyph: "✦" },
+  waste:    { label: "Waste",        color: "#65a30d", glyph: "■" },
+  infra:    { label: "Infrastructure", color: "#0369a1", glyph: "◆" },
+  env:      { label: "Environment",  color: "#15803d", glyph: "❋" },
+  safety:   { label: "Safety",       color: "#b91c1c", glyph: "✕" },
+};
+
+window.STATUSES = {
+  reported:    { label: "Reported",     tone: "neutral" },
+  verified:    { label: "Verified",     tone: "info" },
+  escalated:   { label: "Escalated",    tone: "warn" },
+  in_progress: { label: "In progress",  tone: "accent" },
+  resolved:    { label: "Resolved",     tone: "good" },
+};
+
+// Three scenarios. Each is a full set of problems.
+window.SCENARIOS = {
+  calm: {
+    label: "Calm city",
+    sub: "Steady reports, normal volume",
+    stats: { reported: 1247, resolved: 892, funded: "$184k", solvers: 47 },
+  },
+  crisis: {
+    label: "Crisis mode",
+    sub: "Storm aftermath — high urgency",
+    stats: { reported: 3891, resolved: 412, funded: "$612k", solvers: 47 },
+  },
+  resolved: {
+    label: "Resolved-heavy",
+    sub: "After a fix-it weekend",
+    stats: { reported: 1247, resolved: 1108, funded: "$298k", solvers: 47 },
+  },
+};
+
+// Master problem set. Status/votes get scenario-modulated at render time.
+window.PROBLEMS = [
+  { id: "P-12345", x: 38, y: 42, category: "roads", title: "Large pothole on Main St",
+    address: "123 Main St", reporter: "@john_doe", reporterRep: 4.5, daysAgo: 2,
+    description: "Deep pothole approximately 2ft wide and 6in deep. Dangerous for cars and bicycles. Multiple near-misses reported.",
+    votes: 247, status: "escalated", goal: 150, raised: 85,
+    funding: { crowd: 85, gov: 0, corp: 0 },
+    bids: [
+      { solver: "ABC Paving Co", rating: 4.8, jobs: 23, amount: 120, days: 2, verified: true },
+      { solver: "QuickFix LLC",  rating: 4.5, jobs: 11, amount: 145, days: 3, verified: true },
+    ],
+    comments: 12,
+    photo: "asphalt",
+  },
+  { id: "P-12346", x: 62, y: 28, category: "lighting", title: "Streetlight out on Oak Ave",
+    address: "451 Oak Ave", reporter: "@maria_l", reporterRep: 4.9, daysAgo: 7,
+    description: "Streetlight has been out for over a week. Section of sidewalk is pitch black at night, causing safety concerns.",
+    votes: 89, status: "verified", goal: 200, raised: 120,
+    funding: { crowd: 70, gov: 50, corp: 0 },
+    bids: [
+      { solver: "Volt Bros Electrical", rating: 4.9, jobs: 41, amount: 180, days: 1, verified: true },
+    ],
+    comments: 8,
+    photo: "night",
+  },
+  { id: "P-12347", x: 51, y: 71, category: "waste", title: "Overflowing trash at Riverside Park",
+    address: "Riverside Park, north entrance", reporter: "@parkrunner", reporterRep: 3.8, daysAgo: 1,
+    description: "Trash bins haven't been emptied in days. Wildlife scattering refuse across walking paths.",
+    votes: 134, status: "escalated", goal: 80, raised: 80,
+    funding: { crowd: 30, gov: 50, corp: 0 },
+    bids: [],
+    comments: 23,
+    photo: "park",
+  },
+  { id: "P-12348", x: 22, y: 58, category: "safety", title: "Broken guardrail on Highway 55",
+    address: "Highway 55, mile marker 12", reporter: "@drive_safe", reporterRep: 4.2, daysAgo: 4,
+    description: "Guardrail was struck and is bent outward into the lane. Hazard for motorcycles and small vehicles.",
+    votes: 312, status: "in_progress", goal: 450, raised: 380,
+    funding: { crowd: 130, gov: 200, corp: 50 },
+    bids: [
+      { solver: "Steelworks Co", rating: 4.7, jobs: 18, amount: 420, days: 4, verified: true },
+    ],
+    comments: 17,
+    photo: "guardrail",
+  },
+  { id: "P-12349", x: 74, y: 52, category: "infra", title: "Sidewalk uplifted by tree roots",
+    address: "Elm St between 5th and 6th", reporter: "@walker22", reporterRep: 4.1, daysAgo: 12,
+    description: "Tree roots have lifted three sidewalk panels by ~4 inches. Tripping hazard, not wheelchair accessible.",
+    votes: 67, status: "verified", goal: 220, raised: 45,
+    funding: { crowd: 45, gov: 0, corp: 0 },
+    bids: [],
+    comments: 5,
+    photo: "sidewalk",
+  },
+  { id: "P-12350", x: 45, y: 25, category: "env", title: "Illegal dumping at vacant lot",
+    address: "Birch & 14th, vacant lot", reporter: "@cleanstreets", reporterRep: 4.6, daysAgo: 3,
+    description: "Construction debris and household waste being dumped weekly. Attracting pests.",
+    votes: 156, status: "escalated", goal: 600, raised: 215,
+    funding: { crowd: 115, gov: 100, corp: 0 },
+    bids: [
+      { solver: "GreenHaul",   rating: 4.6, jobs: 31, amount: 540, days: 2, verified: true },
+      { solver: "EcoCleanup",  rating: 4.4, jobs: 14, amount: 580, days: 3, verified: false },
+    ],
+    comments: 31,
+    photo: "lot",
+  },
+  { id: "P-12351", x: 30, y: 78, category: "lighting", title: "Park bench broken at playground",
+    address: "Maple Park playground", reporter: "@momof3", reporterRep: 4.3, daysAgo: 5,
+    description: "Wooden slats on park bench cracked and splintering. Risk of injury to children.",
+    votes: 42, status: "verified", goal: 90, raised: 60,
+    funding: { crowd: 60, gov: 0, corp: 0 },
+    bids: [
+      { solver: "Carpenter & Sons", rating: 4.8, jobs: 27, amount: 85, days: 1, verified: true },
+    ],
+    comments: 4,
+    photo: "bench",
+  },
+  { id: "P-12352", x: 58, y: 48, category: "roads", title: "Crosswalk paint faded at school",
+    address: "Lincoln Elementary, 3rd & Pine", reporter: "@principal_k", reporterRep: 4.9, daysAgo: 9,
+    description: "Crosswalk markings nearly invisible. Children cross here daily. Reflective paint needed.",
+    votes: 198, status: "in_progress", goal: 320, raised: 320,
+    funding: { crowd: 120, gov: 150, corp: 50 },
+    bids: [
+      { solver: "Stripe Right Inc", rating: 4.9, jobs: 52, amount: 290, days: 2, verified: true },
+    ],
+    comments: 19,
+    photo: "crosswalk",
+  },
+  { id: "P-12353", x: 80, y: 75, category: "waste", title: "Graffiti on community center",
+    address: "South Community Center", reporter: "@neighbor_w", reporterRep: 3.9, daysAgo: 6,
+    description: "Large graffiti tag on the south wall. Some content is offensive.",
+    votes: 56, status: "verified", goal: 180, raised: 25,
+    funding: { crowd: 25, gov: 0, corp: 0 },
+    bids: [],
+    comments: 7,
+    photo: "wall",
+  },
+  { id: "P-12354", x: 18, y: 30, category: "safety", title: "Manhole cover loose on Dexter St",
+    address: "Dexter St & 8th", reporter: "@cyclist_pdx", reporterRep: 4.4, daysAgo: 1,
+    description: "Manhole cover rocks and clangs loudly with traffic. Fear it could pop loose.",
+    votes: 178, status: "escalated", goal: 100, raised: 70,
+    funding: { crowd: 70, gov: 0, corp: 0 },
+    bids: [
+      { solver: "City Utilities Co-op", rating: 4.7, jobs: 38, amount: 95, days: 1, verified: true },
+    ],
+    comments: 14,
+    photo: "manhole",
+  },
+  { id: "P-12355", x: 66, y: 62, category: "env", title: "Storm drain blocked with leaves",
+    address: "Cedar & Riverside", reporter: "@neighbor_b", reporterRep: 4.0, daysAgo: 2,
+    description: "Drain backing up. Will flood at next heavy rain.",
+    votes: 94, status: "verified", goal: 60, raised: 60,
+    funding: { crowd: 30, gov: 30, corp: 0 },
+    bids: [
+      { solver: "FlowClear Services", rating: 4.5, jobs: 19, amount: 55, days: 1, verified: true },
+    ],
+    comments: 6,
+    photo: "drain",
+  },
+  { id: "P-12356", x: 42, y: 56, category: "infra", title: "Bus stop shelter glass shattered",
+    address: "Route 14, Market & 9th", reporter: "@bus_rider", reporterRep: 4.2, daysAgo: 8,
+    description: "Side panel of bus shelter shattered. Glass on ground.",
+    votes: 73, status: "verified", goal: 280, raised: 90,
+    funding: { crowd: 60, gov: 30, corp: 0 },
+    bids: [],
+    comments: 9,
+    photo: "shelter",
+  },
+];
+
+// Activity log — gets shown in the side rail.
+window.ACTIVITY = [
+  { who: "@maria_l",       what: "upvoted",     where: "P-12347", t: "2m ago" },
+  { who: "City Roads Dept", what: "acknowledged", where: "P-12345", t: "12m ago" },
+  { who: "ABC Paving Co",  what: "submitted bid", where: "P-12345", t: "27m ago" },
+  { who: "@cleanstreets",  what: "contributed $25", where: "P-12350", t: "44m ago" },
+  { who: "@parkrunner",    what: "reported",    where: "P-12347", t: "1h ago" },
+  { who: "Stripe Right Inc", what: "completed", where: "P-12352", t: "1h ago" },
+  { who: "@drive_safe",    what: "upvoted",     where: "P-12348", t: "2h ago" },
+  { who: "Volt Bros",      what: "submitted bid", where: "P-12346", t: "3h ago" },
+];
+
+// Solver dashboard mock — current logged-in solver
+window.ME_SOLVER = {
+  name: "ABC Paving Co",
+  rating: 4.8,
+  reviews: 23,
+  completed: 15,
+  earned: 12450,
+  successRate: 94,
+  active: ["P-12348"],
+  bids: ["P-12345", "P-12350"],
+};
+
+// Authority dashboard mock — current logged-in authority
+window.ME_AUTH = {
+  name: "Springfield City Roads Dept",
+  jurisdiction: "Springfield, IL",
+  threshold: 100,
+  responseTime: 2.3,
+  resolutionTime: 12,
+  satisfaction: 78,
+};
