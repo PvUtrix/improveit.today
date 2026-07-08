@@ -5,6 +5,8 @@ import {
   errorResponse,
   parsePaginationParams,
   getPaginationMeta,
+  getAuthUser,
+  canActOn,
 } from '@improveit/common';
 import { logger } from '../utils/logger';
 import { publishEvent } from '../utils/kafka';
@@ -62,11 +64,19 @@ router.post('/', async (req, res) => {
     }
 
     const solver = await db.query(
-      'SELECT id, is_active FROM solvers WHERE id = $1',
+      'SELECT id, is_active, user_id FROM solvers WHERE id = $1',
       [solverId]
     );
     if (solver.rows.length === 0) {
       return res.status(404).json(errorResponse('NOT_FOUND', 'Solver not found'));
+    }
+
+    // A caller may only bid through their own solver profile.
+    const auth = getAuthUser(req);
+    if (auth && solver.rows[0].user_id !== auth.userId && !['admin'].includes(auth.role)) {
+      return res.status(403).json(
+        errorResponse('FORBIDDEN', 'You can only submit bids with your own solver profile')
+      );
     }
     if (!solver.rows[0].is_active) {
       return res.status(409).json(
@@ -274,9 +284,18 @@ router.post('/:id/accept', async (req, res) => {
     }
 
     const problemResult = await client.query(
-      'SELECT id, status FROM problems WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, user_id FROM problems WHERE id = $1 FOR UPDATE',
       [bid.problem_id]
     );
+
+    // Only the problem's reporter or an authority/admin may accept a bid.
+    const auth = getAuthUser(req);
+    if (auth && !canActOn(auth, problemResult.rows[0].user_id)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json(
+        errorResponse('FORBIDDEN', 'Only the problem reporter or an authority can accept bids')
+      );
+    }
 
     if (!BIDDABLE_STATUSES.includes(problemResult.rows[0].status)) {
       await client.query('ROLLBACK');
@@ -343,6 +362,23 @@ router.post('/:id/accept', async (req, res) => {
 // Withdraw a bid (solver action)
 router.post('/:id/withdraw', async (req, res) => {
   try {
+    // Only the solver who submitted the bid (or an admin) may withdraw it.
+    const auth = getAuthUser(req);
+    if (auth) {
+      const owner = await db.query(
+        `SELECT s.user_id FROM bids b JOIN solvers s ON b.solver_id = s.id WHERE b.id = $1`,
+        [req.params.id]
+      );
+      if (owner.rows.length === 0) {
+        return res.status(404).json(errorResponse('NOT_FOUND', 'Bid not found'));
+      }
+      if (!canActOn(auth, owner.rows[0].user_id, ['admin'])) {
+        return res.status(403).json(
+          errorResponse('FORBIDDEN', 'Only the bid owner can withdraw it')
+        );
+      }
+    }
+
     const result = await db.query(
       `UPDATE bids SET status = 'withdrawn'
        WHERE id = $1 AND status = 'pending'
@@ -369,7 +405,9 @@ router.post('/:id/withdraw', async (req, res) => {
 router.post('/:id/reviews', async (req, res) => {
   const client = await db.connect();
   try {
-    const { userId, rating, comment } = req.body;
+    const { rating, comment } = req.body;
+    // Reviews always belong to the gateway-verified caller.
+    const userId = getAuthUser(req)?.userId ?? req.body.userId;
 
     if (!userId || !rating) {
       return res.status(400).json(

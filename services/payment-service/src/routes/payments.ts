@@ -5,6 +5,8 @@ import {
   errorResponse,
   parsePaginationParams,
   getPaginationMeta,
+  getAuthUser,
+  canActOn,
 } from '@improveit/common';
 import { logger } from '../utils/logger';
 import { publishEvent } from '../utils/kafka';
@@ -79,12 +81,22 @@ router.post('/escrow/release', async (req, res) => {
     }
 
     const problem = await db.query(
-      'SELECT id, status FROM problems WHERE id = $1',
+      'SELECT id, status, user_id FROM problems WHERE id = $1',
       [problemId]
     );
     if (problem.rows.length === 0) {
       return res.status(404).json(errorResponse('NOT_FOUND', 'Problem not found'));
     }
+
+    // Escrow moves money: only the problem's reporter (confirming the
+    // work) or an authority/admin may trigger the release.
+    const auth = getAuthUser(req);
+    if (auth && !canActOn(auth, problem.rows[0].user_id)) {
+      return res.status(403).json(
+        errorResponse('FORBIDDEN', 'Only the problem reporter or an authority can release escrow')
+      );
+    }
+
     if (problem.rows[0].status !== 'resolved') {
       return res.status(409).json(
         errorResponse(

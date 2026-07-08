@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { successResponse, errorResponse } from '@improveit/common';
+import { successResponse, errorResponse, getAuthUser, canActOn } from '@improveit/common';
 
 const router = Router();
 
@@ -39,6 +39,14 @@ router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { firstName, lastName, bio, language, timezone } = req.body;
+
+    // Users may only update their own profile (admins excepted).
+    const auth = getAuthUser(req);
+    if (auth && !canActOn(auth, id, ['admin'])) {
+      return res.status(403).json(
+        errorResponse('FORBIDDEN', 'You can only update your own profile')
+      );
+    }
 
     const result = await db.query(
       `UPDATE user_profiles

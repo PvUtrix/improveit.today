@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { JwtPayload } from '@improveit/common';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Express declaration merging requires a namespace
   namespace Express {
     interface Request {
       user?: JwtPayload;

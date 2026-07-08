@@ -96,9 +96,24 @@ services.forEach(({ path, target, rewriteTo }) => {
       pathRewrite: {
         [`^${path}`]: rewriteTo ?? path.replace(/^\/api/, ''),
       },
-      // express.json() consumes the request stream before the proxy runs;
-      // re-serialize the parsed body so proxied POST/PATCH bodies aren't lost.
-      onProxyReq: fixRequestBody,
+      onProxyReq: (proxyReq, req) => {
+        // Identity propagation: never forward client-supplied identity
+        // headers; set them from the JWT this gateway verified. Services
+        // take the acting user from these headers, never from the body.
+        proxyReq.removeHeader('x-user-id');
+        proxyReq.removeHeader('x-user-role');
+        proxyReq.removeHeader('x-user-email');
+        const user = (req as express.Request).user;
+        if (user) {
+          proxyReq.setHeader('x-user-id', user.userId);
+          proxyReq.setHeader('x-user-role', user.role || 'user');
+          if (user.email) proxyReq.setHeader('x-user-email', user.email);
+        }
+        // express.json() consumes the request stream before the proxy runs;
+        // re-serialize the parsed body so proxied POST/PATCH bodies aren't
+        // lost. Must run after header changes.
+        fixRequestBody(proxyReq, req);
+      },
       onError: (err, _req, res) => {
         logger.error(`Proxy error for ${path}:`, err);
         res.status(503).json({

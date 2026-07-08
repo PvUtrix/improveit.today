@@ -5,6 +5,7 @@ import {
   errorResponse,
   parsePaginationParams,
   getPaginationMeta,
+  getAuthUser,
 } from '@improveit/common';
 import { logger } from '../utils/logger';
 import { publishEvent } from '../utils/kafka';
@@ -22,7 +23,6 @@ const ACCOUNT_TYPES = ['individual', 'team', 'company', 'ngo'];
 router.post('/', async (req, res) => {
   try {
     const {
-      userId,
       companyName,
       accountType = 'individual',
       skills = [],
@@ -30,6 +30,8 @@ router.post('/', async (req, res) => {
       currency = 'USD',
       portfolioUrl,
     } = req.body;
+    // A solver profile always belongs to the gateway-verified caller.
+    const userId = getAuthUser(req)?.userId ?? req.body.userId;
 
     if (!userId) {
       return res.status(400).json(
@@ -247,6 +249,14 @@ router.patch('/:id', async (req, res) => {
 // Set verification status (admin/moderator action)
 router.post('/:id/verify', async (req, res) => {
   try {
+    // Verification is a trust operation — elevated roles only.
+    const auth = getAuthUser(req);
+    if (auth && !['admin', 'authority', 'moderator'].includes(auth.role)) {
+      return res.status(403).json(
+        errorResponse('FORBIDDEN', 'Only an authority or admin can verify solvers')
+      );
+    }
+
     const { status = 'verified', insuranceVerified, licenseVerified } = req.body;
 
     if (!['unverified', 'pending', 'verified'].includes(status)) {

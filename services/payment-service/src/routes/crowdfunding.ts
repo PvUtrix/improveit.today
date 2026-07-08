@@ -5,6 +5,8 @@ import {
   errorResponse,
   parsePaginationParams,
   getPaginationMeta,
+  getAuthUser,
+  canActOn,
 } from '@improveit/common';
 import { logger } from '../utils/logger';
 import { publishEvent } from '../utils/kafka';
@@ -197,11 +199,12 @@ router.post('/campaigns/:id/contribute', async (req, res) => {
   const client = await db.connect();
   try {
     const {
-      userId,
       amount,
       paymentMethod = 'card',
       isAnonymous = false,
     } = req.body;
+    // Contributions always belong to the gateway-verified caller.
+    const userId = getAuthUser(req)?.userId ?? req.body.userId;
 
     if (!userId || !amount) {
       return res.status(400).json(
@@ -352,6 +355,25 @@ router.post('/campaigns/:id/contribute', async (req, res) => {
 // Cancel a campaign (refunds are handled asynchronously per contribution)
 router.post('/campaigns/:id/cancel', async (req, res) => {
   try {
+    // Only the problem's reporter or an authority/admin may cancel.
+    const auth = getAuthUser(req);
+    if (auth) {
+      const owner = await db.query(
+        `SELECT p.user_id FROM funding_campaigns c
+         JOIN problems p ON c.problem_id = p.id
+         WHERE c.id = $1`,
+        [req.params.id]
+      );
+      if (owner.rows.length === 0) {
+        return res.status(404).json(errorResponse('NOT_FOUND', 'Campaign not found'));
+      }
+      if (!canActOn(auth, owner.rows[0].user_id)) {
+        return res.status(403).json(
+          errorResponse('FORBIDDEN', 'Only the problem reporter or an authority can cancel this campaign')
+        );
+      }
+    }
+
     const result = await db.query(
       `UPDATE funding_campaigns SET status = 'cancelled'
        WHERE id = $1 AND status = 'active'

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { successResponse, errorResponse, parsePaginationParams, getPaginationMeta } from '@improveit/common';
+import { successResponse, errorResponse, parsePaginationParams, getPaginationMeta, getAuthUser, canActOn } from '@improveit/common';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -8,7 +8,11 @@ const router = Router();
 // Create problem
 router.post('/', async (req, res) => {
   try {
-    const { userId, title, description, latitude, longitude, address, category, mediaUrls } = req.body;
+    const { title, description, latitude, longitude, address, category, mediaUrls } = req.body;
+    // Acting user comes from the gateway-verified identity headers; the
+    // body userId is accepted only when no gateway identity is present
+    // (direct internal calls in dev).
+    const userId = getAuthUser(req)?.userId ?? req.body.userId;
 
     if (!userId || !title || !description || !latitude || !longitude || !category) {
       return res.status(400).json(
@@ -194,6 +198,20 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const { title, description, status } = req.body;
 
+    // Only the reporter or an authority/admin may modify a problem.
+    const auth = getAuthUser(req);
+    if (auth) {
+      const owner = await db.query('SELECT user_id FROM problems WHERE id = $1', [id]);
+      if (owner.rows.length === 0) {
+        return res.status(404).json(errorResponse('NOT_FOUND', 'Problem not found'));
+      }
+      if (!canActOn(auth, owner.rows[0].user_id)) {
+        return res.status(403).json(
+          errorResponse('FORBIDDEN', 'Only the reporter or an authority can modify this problem')
+        );
+      }
+    }
+
     const result = await db.query(
       `UPDATE problems
        SET title = COALESCE($1, title),
@@ -214,9 +232,9 @@ router.patch('/:id', async (req, res) => {
     // Add to history if status changed
     if (status) {
       await db.query(
-        `INSERT INTO problem_history (problem_id, status)
-         VALUES ($1, $2)`,
-        [id, status]
+        `INSERT INTO problem_history (problem_id, status, changed_by)
+         VALUES ($1, $2, $3)`,
+        [id, status, getAuthUser(req)?.userId ?? null]
       );
     }
 
@@ -233,6 +251,20 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Only the reporter or an admin may delete a problem.
+    const auth = getAuthUser(req);
+    if (auth) {
+      const owner = await db.query('SELECT user_id FROM problems WHERE id = $1', [id]);
+      if (owner.rows.length === 0) {
+        return res.status(404).json(errorResponse('NOT_FOUND', 'Problem not found'));
+      }
+      if (!canActOn(auth, owner.rows[0].user_id, ['admin'])) {
+        return res.status(403).json(
+          errorResponse('FORBIDDEN', 'Only the reporter or an admin can delete this problem')
+        );
+      }
+    }
 
     const result = await db.query(
       'DELETE FROM problems WHERE id = $1 RETURNING id',

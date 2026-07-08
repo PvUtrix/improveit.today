@@ -7,72 +7,6 @@ on:
     branches: [main, develop]
 
 jobs:
-  lint-and-typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgis/postgis:15-3.3
-        env:
-          POSTGRES_DB: improveit_test
-          POSTGRES_USER: improveit
-          POSTGRES_PASSWORD: test-password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm run test
-        env:
-          DATABASE_URL: postgresql://improveit:test-password@localhost:5432/improveit_test
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-
   build:
     runs-on: ubuntu-latest
     steps:
@@ -81,11 +15,89 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (includes strict tsc for every package)
         run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_DB: improveit_dev
+          POSTGRES_USER: improveit
+          POSTGRES_PASSWORD: dev-password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://improveit:dev-password@localhost:5432/improveit_dev
+      JWT_SECRET: ci-only-secret
+      JWT_EXPIRY: 15m
+      API_GATEWAY_PORT: '8000'
+      USER_SERVICE_URL: http://localhost:8001
+      PROBLEM_SERVICE_URL: http://localhost:8002
+      VOTING_SERVICE_URL: http://localhost:8003
+      AUTHORITY_SERVICE_URL: http://localhost:8005
+      PAYMENT_SERVICE_URL: http://localhost:8006
+      BIDDING_SERVICE_URL: http://localhost:8007
+      # Kafka is intentionally absent: services publish events best-effort
+      # and tolerate a missing broker.
+      KAFKA_BROKERS: localhost:19092
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply database schema
+        run: PGPASSWORD=dev-password psql -h localhost -U improveit -d improveit_dev -f packages/database/schemas/001_initial_schema.sql
+
+      - name: Start services
+        run: |
+          mkdir -p /tmp/svclogs
+          for s in user-service problem-service voting-service authority-service payment-service bidding-service api-gateway; do
+            (cd services/$s && nohup npx tsx src/index.ts > /tmp/svclogs/$s.log 2>&1 &)
+          done
+          # Wait for all seven health endpoints
+          for i in $(seq 1 30); do
+            ok=0
+            for p in 8000 8001 8002 8003 8005 8006 8007; do
+              curl -sf -m 2 "http://localhost:$p/health" > /dev/null && ok=$((ok+1))
+            done
+            [ "$ok" = "7" ] && echo "all services healthy" && exit 0
+            sleep 2
+          done
+          echo "services failed to become healthy"; exit 1
+
+      - name: E2E — full lifecycle (report → vote → fund → bid → resolve)
+        run: node tests/e2e/full-lifecycle.mjs "ci_$GITHUB_RUN_ID"
+
+      - name: E2E — authorization & anti-spoofing
+        run: node tests/e2e/authz.mjs "ci_$GITHUB_RUN_ID"
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: tail -n 50 /tmp/svclogs/*.log

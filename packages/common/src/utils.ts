@@ -149,3 +149,35 @@ export function getPaginationMeta(total: number, page: number, limit: number) {
     hasPrev: page > 1,
   };
 }
+
+// ---- Gateway-propagated identity ----
+// The API gateway verifies the JWT and forwards the caller's identity as
+// x-user-* headers (stripping any client-supplied values first). Services
+// MUST take the acting user from here — never from the request body.
+
+export interface AuthUser {
+  userId: string;
+  role: string;
+  email?: string;
+}
+
+type HeaderBag = { headers: Record<string, string | string[] | undefined> };
+
+export function getAuthUser(req: HeaderBag): AuthUser | null {
+  const userId = req.headers['x-user-id'];
+  if (typeof userId !== 'string' || userId.length === 0) return null;
+  const role = req.headers['x-user-role'];
+  const email = req.headers['x-user-email'];
+  return {
+    userId,
+    role: typeof role === 'string' && role.length > 0 ? role : 'user',
+    email: typeof email === 'string' ? email : undefined,
+  };
+}
+
+/** True when the caller may act on a resource owned by `ownerId`. */
+export function canActOn(auth: AuthUser | null, ownerId: string | null | undefined, elevatedRoles: string[] = ['admin', 'authority']): boolean {
+  if (!auth) return false;
+  if (ownerId && auth.userId === ownerId) return true;
+  return elevatedRoles.includes(auth.role);
+}

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { successResponse, errorResponse } from '@improveit/common';
+import { successResponse, errorResponse, getAuthUser } from '@improveit/common';
 import { logger } from '../utils/logger';
 import { publishEvent } from '../utils/kafka';
 
@@ -9,7 +9,9 @@ const router = Router();
 // Cast a vote
 router.post('/', async (req, res) => {
   try {
-    const { userId, problemId, voteType = 'upvote' } = req.body;
+    const { problemId, voteType = 'upvote' } = req.body;
+    // Votes always belong to the gateway-verified caller.
+    const userId = getAuthUser(req)?.userId ?? req.body.userId;
 
     if (!userId || !problemId) {
       return res.status(400).json(
@@ -96,7 +98,9 @@ router.post('/', async (req, res) => {
 // Remove vote
 router.delete('/', async (req, res) => {
   try {
-    const { userId, problemId } = req.body;
+    const { problemId } = req.body;
+    // A caller can only remove their own vote.
+    const userId = getAuthUser(req)?.userId ?? req.body.userId;
 
     if (!userId || !problemId) {
       return res.status(400).json(
