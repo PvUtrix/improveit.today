@@ -1,0 +1,166 @@
+import axios from 'axios';
+import { useAuth } from '../store/auth';
+
+/**
+ * Shared axios instance. All requests go through the Vite proxy to the API
+ * gateway, which requires a JWT on every route except /api/auth/*.
+ * The interceptor attaches the current user's token from the auth store.
+ */
+export const api = axios.create();
+
+api.interceptors.request.use((config) => {
+  const token = useAuth.getState().token;
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Unwrap the platform's { success, data } envelope.
+async function unwrap<T>(p: Promise<{ data: { data: T } }>): Promise<T> {
+  const res = await p;
+  return res.data.data;
+}
+
+// ---- Problems ----
+export interface Problem {
+  id: string;
+  title: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  category: string;
+  status: string;
+  upvotes?: number;
+  media?: { id: string; media_url: string }[];
+}
+
+export const problemsApi = {
+  get: (id: string) => unwrap<Problem>(api.get(`/api/problems/${id}`)),
+  list: () => unwrap<Problem[]>(api.get('/api/problems')),
+};
+
+// ---- Votes ----
+export interface VoteStats {
+  upvotes: number;
+  downvotes: number;
+  score: number;
+}
+
+export const votesApi = {
+  getStats: (problemId: string) =>
+    unwrap<VoteStats>(api.get(`/api/votes/problem/${problemId}`)),
+  getMyVote: (userId: string, problemId: string) =>
+    api
+      .get(`/api/votes/user/${userId}/problem/${problemId}`)
+      .then((r) => r.data.data as { id: string; vote_type: string })
+      .catch(() => null),
+  cast: (userId: string, problemId: string, voteType: 'upvote' | 'downvote') =>
+    unwrap(api.post('/api/votes', { userId, problemId, voteType })),
+  remove: (userId: string, problemId: string) =>
+    unwrap(api.delete('/api/votes', { data: { userId, problemId } })),
+};
+
+// ---- Crowdfunding ----
+export interface Campaign {
+  id: string;
+  problem_id: string;
+  goal_amount: string;
+  current_amount: string;
+  currency: string;
+  status: string;
+  percent_funded?: string;
+  deadline?: string;
+  contributorCount?: number;
+  recentContributions?: {
+    id: string;
+    amount: string;
+    currency: string;
+    contributor: string | null;
+    created_at: string;
+  }[];
+}
+
+export const fundingApi = {
+  getByProblem: (problemId: string) =>
+    api
+      .get(`/api/crowdfunding/campaigns/problem/${problemId}`)
+      .then((r) => r.data.data as Campaign)
+      .catch(() => null),
+  get: (id: string) => unwrap<Campaign>(api.get(`/api/crowdfunding/campaigns/${id}`)),
+  create: (problemId: string, goalAmount: number, currency = 'USD') =>
+    unwrap<Campaign>(
+      api.post('/api/crowdfunding/campaigns', { problemId, goalAmount, currency })
+    ),
+  contribute: (
+    campaignId: string,
+    userId: string,
+    amount: number,
+    isAnonymous = false
+  ) =>
+    unwrap<{ contribution: any; campaign: Campaign }>(
+      api.post(`/api/crowdfunding/campaigns/${campaignId}/contribute`, {
+        userId,
+        amount,
+        isAnonymous,
+      })
+    ),
+};
+
+// ---- Bidding & Solvers ----
+export interface Bid {
+  id: string;
+  problem_id: string;
+  solver_id: string;
+  amount: string;
+  currency: string;
+  timeline_days?: number;
+  description: string;
+  warranty_months?: number;
+  status: string;
+  company_name?: string;
+  solver_username?: string;
+  solver_rating?: string;
+  completed_jobs?: number;
+  verification_status?: string;
+  submitted_at: string;
+}
+
+export interface Solver {
+  id: string;
+  user_id: string;
+  company_name?: string;
+  account_type: string;
+  skills?: string[];
+  rating: string;
+  completed_jobs: number;
+  verification_status: string;
+}
+
+export const biddingApi = {
+  listForProblem: (problemId: string) =>
+    unwrap<Bid[]>(api.get(`/api/bids/problem/${problemId}`)),
+  submit: (payload: {
+    problemId: string;
+    solverId: string;
+    amount: number;
+    description: string;
+    timelineDays?: number;
+    warrantyMonths?: number;
+  }) => unwrap<Bid>(api.post('/api/bids', payload)),
+  accept: (bidId: string) => unwrap<Bid>(api.post(`/api/bids/${bidId}/accept`, {})),
+  getSolverByUser: (userId: string) =>
+    api
+      .get(`/api/solvers?page=1&limit=100`)
+      .then((r) => {
+        const solvers = r.data.data as Solver[];
+        return solvers.find((s) => s.user_id === userId) ?? null;
+      })
+      .catch(() => null),
+  registerSolver: (userId: string, companyName?: string, skills: string[] = []) =>
+    unwrap<Solver>(
+      api.post('/api/solvers', { userId, companyName, skills })
+    ),
+};

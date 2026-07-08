@@ -1,62 +1,94 @@
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { problemsApi, votesApi } from '../lib/api';
+import { useAuth } from '../store/auth';
+import FundingPanel from '../components/FundingPanel';
+import BidsPanel from '../components/BidsPanel';
 
 function ProblemDetail() {
   const { id } = useParams();
+  const problemId = id!;
+  const { user } = useAuth();
+  const qc = useQueryClient();
 
   const { data: problem, isLoading } = useQuery({
-    queryKey: ['problem', id],
-    queryFn: async () => {
-      const response = await axios.get(`/api/problems/${id}`);
-      return response.data.data;
+    queryKey: ['problem', problemId],
+    queryFn: () => problemsApi.get(problemId),
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['votes', problemId],
+    queryFn: () => votesApi.getStats(problemId),
+  });
+
+  const { data: myVote } = useQuery({
+    queryKey: ['myVote', problemId, user?.id],
+    queryFn: () => votesApi.getMyVote(user!.id, problemId),
+    enabled: !!user,
+  });
+
+  const hasUpvoted = myVote?.vote_type === 'upvote';
+
+  const vote = useMutation({
+    mutationFn: () =>
+      hasUpvoted
+        ? votesApi.remove(user!.id, problemId)
+        : votesApi.cast(user!.id, problemId, 'upvote'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['votes', problemId] });
+      qc.invalidateQueries({ queryKey: ['myVote', problemId, user?.id] });
     },
   });
 
   if (isLoading) {
-    return <div style={{ padding: '24px' }}>Loading...</div>;
+    return <div className="detail-page">Loading…</div>;
+  }
+  if (!problem) {
+    return <div className="detail-page">Problem not found</div>;
   }
 
-  if (!problem) {
-    return <div style={{ padding: '24px' }}>Problem not found</div>;
-  }
+  const upvotes = stats?.upvotes ?? problem.upvotes ?? 0;
 
   return (
-    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '16px' }}>{problem.title}</h1>
+    <div className="detail-page">
+      <h1>{problem.title}</h1>
 
-      <div style={{ marginBottom: '24px', color: '#666' }}>
-        <span>📍 {problem.address || `${problem.latitude}, ${problem.longitude}`}</span>
-        <span style={{ margin: '0 12px' }}>•</span>
+      <div className="detail-meta">
+        <span>
+          📍 {problem.address || `${problem.latitude}, ${problem.longitude}`}
+        </span>
+        <span>•</span>
         <span>🏷️ {problem.category}</span>
-        <span style={{ margin: '0 12px' }}>•</span>
-        <span>⬆️ {problem.upvotes} votes</span>
+        <span>•</span>
+        <span className={`status-pill status-${problem.status}`}>
+          {problem.status.replace('_', ' ')}
+        </span>
       </div>
 
-      <p style={{ marginBottom: '24px', lineHeight: '1.6' }}>
-        {problem.description}
-      </p>
+      <p className="detail-description">{problem.description}</p>
 
       {problem.media && problem.media.length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ marginBottom: '16px' }}>Photos</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-            {problem.media.map((media: any) => (
-              <img
-                key={media.id}
-                src={media.media_url}
-                alt="Problem"
-                style={{ width: '100%', borderRadius: '8px' }}
-              />
-            ))}
-          </div>
+        <div className="detail-media">
+          {problem.media.map((m) => (
+            <img key={m.id} src={m.media_url} alt="Problem" />
+          ))}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button className="button">⬆️ Upvote</button>
-        <button className="button">💰 Fund This</button>
-        <button className="button button-secondary">📤 Share</button>
+      <div className="detail-actions">
+        <button
+          className={`button ${hasUpvoted ? '' : 'button-secondary'}`}
+          disabled={!user || vote.isPending}
+          onClick={() => vote.mutate()}
+          title={user ? '' : 'Sign in to vote'}
+        >
+          ⬆️ {hasUpvoted ? 'Upvoted' : 'Upvote'} · {upvotes}
+        </button>
+      </div>
+
+      <div className="detail-panels">
+        <FundingPanel problemId={problemId} />
+        <BidsPanel problemId={problemId} problemStatus={problem.status} />
       </div>
     </div>
   );

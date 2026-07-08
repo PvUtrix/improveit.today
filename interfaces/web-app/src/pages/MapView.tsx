@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Map, { Marker, Popup, NavigationControl, GeolocateControl } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { problemsApi } from '../lib/api';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -18,6 +19,7 @@ interface Problem {
 }
 
 function MapView() {
+  const navigate = useNavigate();
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [viewState, setViewState] = useState({
     longitude: -100,
@@ -27,10 +29,7 @@ function MapView() {
 
   const { data: problems } = useQuery({
     queryKey: ['problems'],
-    queryFn: async () => {
-      const response = await axios.get('/api/problems');
-      return response.data.data as Problem[];
-    },
+    queryFn: () => problemsApi.list() as Promise<Problem[]>,
   });
 
   const getCategoryColor = (category: string) => {
@@ -110,7 +109,7 @@ function MapView() {
               <button
                 className="button"
                 style={{ marginTop: '8px', padding: '6px 12px', fontSize: '12px' }}
-                onClick={() => window.location.href = `/problem/${selectedProblem.id}`}
+                onClick={() => navigate(`/problem/${selectedProblem.id}`)}
               >
                 View Details
               </button>

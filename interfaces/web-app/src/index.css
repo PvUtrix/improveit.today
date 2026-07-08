@@ -126,3 +126,331 @@ body {
 .button-secondary:hover {
   background: #616161;
 }
+
+/* ---- Buttons & links (additions) ---- */
+.button-small {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+}
+
+.header .link-button {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-size: 14px;
+}
+
+/* ---- Auth modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 10px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: #999;
+}
+
+.modal-footer {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
+/* ---- Forms ---- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: #444;
+}
+
+.field input,
+.field-inline input,
+.textarea {
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.field input:focus,
+.field-inline input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.form-error {
+  background: #fdecea;
+  color: #b71c1c;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.inline-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.field-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.field-inline input {
+  width: 100px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #666;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 72px;
+  margin: 10px 0;
+  resize: vertical;
+}
+
+/* ---- Detail page ---- */
+.detail-page {
+  padding: 24px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.detail-page h1 {
+  margin-bottom: 12px;
+}
+
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.detail-description {
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.detail-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.detail-media img {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.detail-actions {
+  margin-bottom: 24px;
+}
+
+.detail-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 720px) {
+  .detail-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 18px;
+  background: #fafafa;
+}
+
+.panel h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.panel h3 {
+  font-size: 15px;
+  margin: 12px 0 4px;
+}
+
+.muted {
+  color: #888;
+  font-size: 14px;
+}
+
+/* ---- Progress bar ---- */
+.progress {
+  height: 12px;
+  background: #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #43a047, #66bb6a);
+  transition: width 0.4s ease;
+}
+
+.progress-meta {
+  font-size: 14px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.contrib-list,
+.bid-list {
+  list-style: none;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contrib-list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #555;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* ---- Bids ---- */
+.bid-item {
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  padding: 12px;
+  background: white;
+}
+
+.bid-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.bid-meta {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 6px;
+}
+
+.bid-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.bid-form {
+  margin-top: 16px;
+  border-top: 1px solid #e6e6e6;
+  padding-top: 12px;
+}
+
+.become-solver {
+  margin-top: 12px;
+}
+
+/* ---- Status pills ---- */
+.status-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: #eceff1;
+  color: #455a64;
+}
+
+.status-reported { background: #e3f2fd; color: #1565c0; }
+.status-verified { background: #e8f5e9; color: #2e7d32; }
+.status-escalated { background: #fff3e0; color: #e65100; }
+.status-in_progress { background: #ede7f6; color: #5e35b1; }
+.status-resolved { background: #e8f5e9; color: #1b5e20; }
+.status-funded { background: #e8f5e9; color: #2e7d32; }
+.status-accepted { background: #e8f5e9; color: #2e7d32; }
+.status-rejected { background: #fbe9e7; color: #c62828; }
+.status-pending { background: #fff8e1; color: #f9a825; }
