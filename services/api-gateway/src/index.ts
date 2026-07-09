@@ -4,9 +4,16 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
+import {
+  registry,
+  httpRequestsTotal,
+  httpRequestDuration,
+  routeLabel,
+} from './utils/metrics';
 
 dotenv.config();
 
@@ -59,11 +66,28 @@ const authLimiter = rateLimit({
 // Logout is excluded — it isn't a guessing vector and clients call it freely.
 app.use(['/api/auth/login', '/api/auth/register', '/api/auth/refresh'], authLimiter);
 
-// Request logging
-app.use((req, _res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    ip: req.ip,
-    userAgent: req.get('user-agent'),
+// Request id + structured access log + Prometheus metrics. A request id is
+// taken from an upstream proxy if present, else generated, echoed on the
+// response, and forwarded to services (see onProxyReq) so a single request
+// is traceable across the whole stack.
+app.use((req, res, next) => {
+  const incoming = req.headers['x-request-id'];
+  const requestId = (typeof incoming === 'string' && incoming) || crypto.randomUUID();
+  (req as express.Request & { requestId: string }).requestId = requestId;
+  res.setHeader('x-request-id', requestId);
+
+  const endTimer = httpRequestDuration.startTimer();
+  res.on('finish', () => {
+    const route = routeLabel(req.path);
+    const labels = { method: req.method, route, status: String(res.statusCode) };
+    httpRequestsTotal.inc(labels);
+    endTimer(labels);
+    logger.info(`${req.method} ${req.path}`, {
+      requestId,
+      status: res.statusCode,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
   });
   next();
 });
@@ -71,6 +95,14 @@ app.use((req, _res, next) => {
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Prometheus scrape endpoint. Public (no JWT) so a scraper can reach it;
+// in production restrict it at the network layer — do NOT route /metrics
+// through the public Ingress.
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', registry.contentType);
+  res.end(await registry.metrics());
 });
 
 // Service routes (with proxy). Services mount their routers at the resource
@@ -142,6 +174,9 @@ services.forEach(({ path, target, rewriteTo }) => {
           proxyReq.setHeader('x-user-role', user.role || 'user');
           if (user.email) proxyReq.setHeader('x-user-email', user.email);
         }
+        // Propagate the trace id so a request is correlatable across services.
+        const requestId = (req as express.Request & { requestId?: string }).requestId;
+        if (requestId) proxyReq.setHeader('x-request-id', requestId);
         // express.json() consumes the request stream before the proxy runs;
         // re-serialize the parsed body so proxied POST/PATCH bodies aren't
         // lost. Must run after header changes.

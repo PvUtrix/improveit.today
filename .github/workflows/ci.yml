@@ -109,6 +109,16 @@ jobs:
       - name: E2E — refresh tokens (issue / rotate / revoke)
         run: node tests/e2e/auth-refresh.mjs "ci_$GITHUB_RUN_ID"
 
+      - name: Observability — /metrics + request-id header
+        run: |
+          set -e
+          echo "checking Prometheus /metrics ..."
+          curl -sf http://localhost:8000/metrics | grep -q 'gateway_http_requests_total' \
+            && echo "  ✓ /metrics exposes gateway_http_requests_total"
+          echo "checking x-request-id echo ..."
+          rid=$(curl -sf -D - -o /dev/null http://localhost:8000/health | tr -d '\r' | awk 'tolower($1)=="x-request-id:"{print $2}')
+          test -n "$rid" && echo "  ✓ response carried x-request-id: $rid"
+
       # MUST be last: exhausts the auth limiter budget for the runner IP.
       - name: E2E — auth rate limiting (brute-force guard)
         run: node tests/e2e/rate-limit.mjs "ci_$GITHUB_RUN_ID"
