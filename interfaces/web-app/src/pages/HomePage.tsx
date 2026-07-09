@@ -1,48 +1,59 @@
 import { Link } from 'react-router-dom';
 
+const FEATURES = [
+  {
+    icon: '📝',
+    title: 'Report',
+    body: 'Spot a pothole or a dark streetlight? Report it in seconds, with a photo and a pin.',
+  },
+  {
+    icon: '⬆️',
+    title: 'Vote',
+    body: 'Upvote what matters most. The problems your community cares about rise to the top.',
+  },
+  {
+    icon: '💰',
+    title: 'Fund',
+    body: 'Crowdfund a fix together — small contributions add up to real change on your street.',
+  },
+  {
+    icon: '🔨',
+    title: 'Solve',
+    body: 'Vetted solvers bid on the work and get paid to make your neighborhood better.',
+  },
+];
+
 function HomePage() {
   return (
-    <div style={{ padding: '48px 24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '48px', marginBottom: '24px' }}>
-        Global Open-Source Service Desk
-      </h1>
-      <p style={{ fontSize: '20px', marginBottom: '32px', color: '#666' }}>
-        Report, prioritize, fund, and solve local problems worldwide
-      </p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginTop: '48px' }}>
-        <div style={{ padding: '24px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-          <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>📝 Report</h2>
-          <p>Spot a pothole? Broken streetlight? Report problems in your community instantly.</p>
+    <div className="home">
+      <section className="hero">
+        <span className="hero-badge">🌍 A global open-source service desk</span>
+        <h1>
+          Fix your <span className="grad">corner of the world</span>.
+        </h1>
+        <p>
+          Report, prioritize, fund, and solve local problems — from a broken
+          streetlight to a flooded road. One report doesn't stay one report.
+        </p>
+        <div className="hero-cta">
+          <Link to="/report" className="button">
+            📢 Report a Problem
+          </Link>
+          <Link to="/map" className="button button-secondary">
+            Explore the Map
+          </Link>
         </div>
+      </section>
 
-        <div style={{ padding: '24px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-          <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>⬆️ Vote</h2>
-          <p>Upvote problems that matter most to you and your community.</p>
-        </div>
-
-        <div style={{ padding: '24px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-          <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>💰 Fund</h2>
-          <p>Crowdfund solutions to community problems.</p>
-        </div>
-
-        <div style={{ padding: '24px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-          <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>🔨 Solve</h2>
-          <p>Bid on problems, get paid to make your community better.</p>
-        </div>
-      </div>
-
-      <div style={{ marginTop: '48px', display: 'flex', gap: '16px' }}>
-        <Link to="/report" className="button">
-          📢 Report a Problem
-        </Link>
-        <Link to="/map" className="button button-secondary">
-          View Map
-        </Link>
-        <Link to="/globe" className="button button-secondary">
-          View Globe
-        </Link>
-      </div>
+      <section className="feature-grid">
+        {FEATURES.map((f) => (
+          <div className="feature" key={f.title}>
+            <div className="feature-icon">{f.icon}</div>
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
