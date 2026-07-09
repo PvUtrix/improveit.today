@@ -24,13 +24,40 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
+// Rate limiting. The platform envelope is used for the 429 body so clients
+// parse errors uniformly.
+const rateLimited = (message: string) => ({
+  status: 429,
+  body: { success: false, error: { code: 'RATE_LIMITED', message } },
+});
+
+// Global limiter — a coarse flood guard across every route.
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    const r = rateLimited('Too many requests from this IP, please try again later.');
+    res.status(r.status).json(r.body);
+  },
 });
 app.use(limiter);
+
+// Strict limiter for credential endpoints — brute-force / credential-stuffing
+// protection. Defaults to 20 attempts per 15 minutes per IP; tune via env.
+const authLimiter = rateLimit({
+  windowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS || '900000'),
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '20'),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    const r = rateLimited('Too many authentication attempts. Please wait and try again.');
+    res.status(r.status).json(r.body);
+  },
+});
+// Logout is excluded — it isn't a guessing vector and clients call it freely.
+app.use(['/api/auth/login', '/api/auth/register', '/api/auth/refresh'], authLimiter);
 
 // Request logging
 app.use((req, _res, next) => {

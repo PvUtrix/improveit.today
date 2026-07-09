@@ -59,6 +59,11 @@ jobs:
       # and tolerate a missing broker.
       KAFKA_BROKERS: localhost:19092
       NODE_ENV: test
+      # Auth limiter budget for the whole job: comfortably above the ~12 auth
+      # calls the functional suites make, low enough that the dedicated
+      # rate-limit test (run last) trips it with a short burst.
+      AUTH_RATE_LIMIT_MAX: '50'
+      AUTH_RATE_LIMIT_WINDOW_MS: '900000'
 
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +108,10 @@ jobs:
 
       - name: E2E — refresh tokens (issue / rotate / revoke)
         run: node tests/e2e/auth-refresh.mjs "ci_$GITHUB_RUN_ID"
+
+      # MUST be last: exhausts the auth limiter budget for the runner IP.
+      - name: E2E — auth rate limiting (brute-force guard)
+        run: node tests/e2e/rate-limit.mjs "ci_$GITHUB_RUN_ID"
 
       - name: Dump service logs on failure
         if: failure()
