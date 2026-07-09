@@ -85,6 +85,23 @@ export const problemsApi = {
     unwrap<Problem>(api.post('/api/problems', input)),
 };
 
+// ---- Media ----
+export interface UploadedMedia {
+  id: string;
+  url: string;
+  thumbnailUrl: string;
+}
+
+export const mediaApi = {
+  /** Upload one image; the media service optimizes it and returns its URLs.
+   * The browser sets the multipart boundary automatically for FormData. */
+  upload: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return unwrap<UploadedMedia>(api.post('/api/media/upload', form));
+  },
+};
+
 export const PROBLEM_CATEGORIES = [
   { value: 'roads', label: '🛣️ Roads' },
   { value: 'lighting', label: '💡 Lighting' },

@@ -30,8 +30,8 @@
 6. **Observability — baseline done, error-reporting pending (MEDIUM).** Gateway now exposes a Prometheus `/metrics` endpoint (default runtime metrics + request count/duration), propagates an `x-request-id` across services for tracing, and emits single-line JSON logs in production (proven in CI). Remaining: wire Sentry (or equivalent) for error reporting once a `SENTRY_DSN` is available, and add `/metrics` to the other services (currently gateway-only).
 7. ~~**No CI.**~~ **RESOLVED 2026-07-09.** GitHub Actions runs lint + strict build + both E2E suites (PostGIS service container, seven live services) on every push/PR to main/develop. Remaining: no unit-test infrastructure (the scaffolded `jest` scripts have no jest installed and no tests) — E2E is the current safety net.
 8. **Rate limiting is per-pod memory (LOW).** Auth brute-force limiter is in place (item above), but it's per-pod: with `replicas: 2` the effective limit doubles and resets on deploy. Back it with Redis (`rate-limit-redis`) so the budget is shared across pods.
-9. **Vote matview refresh on every vote (LOW at MVP scale).** `REFRESH MATERIALIZED VIEW CONCURRENTLY` per vote won't scale; move to a debounced job or trigger-maintained aggregates.
-10. **Media upload unwired (LOW).** Backend accepts `mediaUrls`; media-service and MinIO exist but the web/bot flows don't upload photos yet.
+9. ~~**Vote matview refresh on every vote.**~~ **RESOLVED 2026-07-09.** Per-problem stats now come straight from the votes table (exact, cheap); the `vote_aggregates` matview (trending only) is refreshed lazily, coalesced to at most once per `VOTE_AGG_REFRESH_MS`.
+10. ~~**Media upload unwired (web).**~~ **RESOLVED 2026-07-09.** The web report form now has a photo picker that uploads via the media service (`/api/media/upload`) and passes the returned URLs as `mediaUrls`. Backend (sharp optimize + thumbnail + MinIO) was already complete. Round-trip needs MinIO running to verify (not in CI); the Telegram bot still doesn't attach photos.
 
 ## Go-live checklist (in order)
 
@@ -44,7 +44,7 @@
 - [ ] Sentry (or equivalent) error reporting once `SENTRY_DSN` is provisioned
 - [x] Refresh-token flow (rotating, revocable) — *done 2026-07-09*
 - [ ] Stripe + signature-verified webhooks before enabling real payments (mock provider is fine for pilots with no real money)
-- [ ] Load-test the vote path; debounce matview refresh if needed
+- [x] Debounce vote matview refresh — *done 2026-07-09*; still worth a load test before high traffic
 
 ## How to re-verify locally
 

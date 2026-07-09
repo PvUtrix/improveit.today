@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { problemsApi, PROBLEM_CATEGORIES } from '../lib/api';
+import { problemsApi, mediaApi, PROBLEM_CATEGORIES, type UploadedMedia } from '../lib/api';
 import { useAuth } from '../store/auth';
 
 function ReportProblem() {
@@ -16,6 +16,9 @@ function ReportProblem() {
   const [lng, setLng] = useState('');
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<UploadedMedia[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -27,9 +30,30 @@ function ReportProblem() {
         address: address.trim() || undefined,
         latitude: Number(lat),
         longitude: Number(lng),
+        mediaUrls: photos.map((p) => p.url),
       }),
     onSuccess: (problem) => navigate(`/problem/${problem.id}`),
   });
+
+  const handlePhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      // Upload sequentially so one failure doesn't lose the others.
+      for (const file of Array.from(files)) {
+        const media = await mediaApi.upload(file);
+        setPhotos((prev) => [...prev, media]);
+      }
+    } catch {
+      setUploadError('One or more photos failed to upload. You can still submit without them.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePhoto = (id: string) =>
+    setPhotos((prev) => prev.filter((p) => p.id !== id));
 
   const useMyLocation = () => {
     setGeoError(null);
@@ -162,6 +186,40 @@ function ReportProblem() {
           />
         </label>
 
+        <div className="field">
+          <span>Photos (optional)</span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="file-input"
+            disabled={uploading}
+            onChange={(e) => {
+              handlePhotos(e.target.files);
+              e.target.value = ''; // allow re-selecting the same file
+            }}
+          />
+          {uploading && <div className="muted">Uploading…</div>}
+          {uploadError && <div className="form-error">{uploadError}</div>}
+          {photos.length > 0 && (
+            <div className="photo-grid">
+              {photos.map((p) => (
+                <div key={p.id} className="photo-thumb">
+                  <img src={p.thumbnailUrl || p.url} alt="attached" />
+                  <button
+                    type="button"
+                    className="photo-remove"
+                    aria-label="Remove photo"
+                    onClick={() => removePhoto(p.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {mutation.isError && (
           <div className="form-error">
             Could not submit the report. Please try again.
@@ -171,7 +229,7 @@ function ReportProblem() {
         <button
           type="submit"
           className="button"
-          disabled={!canSubmit || mutation.isPending}
+          disabled={!canSubmit || mutation.isPending || uploading}
         >
           {mutation.isPending ? 'Submitting…' : 'Submit report'}
         </button>
