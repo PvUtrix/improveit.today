@@ -31,6 +31,14 @@ spec:
                   key: jwt-secret
             - name: CORS_ORIGIN
               value: "https://improveit.today"
+            - name: JWT_EXPIRY
+              value: "15m"
+            - name: REFRESH_TOKEN_EXPIRY
+              value: "7d"
+            - name: AUTH_RATE_LIMIT_WINDOW_MS
+              value: "900000"
+            - name: AUTH_RATE_LIMIT_MAX
+              value: "20"
             - name: USER_SERVICE_URL
               value: "http://user-service:8001"
             - name: PROBLEM_SERVICE_URL
@@ -74,4 +82,7 @@ spec:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-  type: LoadBalancer
+  # ClusterIP, not LoadBalancer: the Ingress (see deployment/kubernetes/ingress)
+  # terminates TLS and is the only public entry point. Exposing the gateway
+  # directly would bypass HTTPS.
+  type: ClusterIP

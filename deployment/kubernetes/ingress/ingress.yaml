@@ -1,0 +1,51 @@
+# Public entry point for ImproveIt.Today. Terminates TLS (cert-manager issues
+# and renews the certificate) and routes:
+#   api.improveit.today  → api-gateway:8000   (all /api/* traffic)
+#   improveit.today      → web-app:80         (the React SPA)
+#
+# Apply order:
+#   1. install nginx-ingress + cert-manager (see infrastructure/README.md)
+#   2. kubectl apply -f cluster-issuer.yaml
+#   3. kubectl apply -f ingress.yaml
+#
+# Swap letsencrypt-staging → letsencrypt-prod once the staging cert issues
+# cleanly (avoids hitting Let's Encrypt production rate limits during setup).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: improveit-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    # Redirect any HTTP request to HTTPS.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Match the gateway body limit (express.json is 10mb).
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - improveit.today
+        - api.improveit.today
+      secretName: improveit-tls
+  rules:
+    - host: api.improveit.today
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8000
+    - host: improveit.today
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-app
+                port:
+                  number: 80

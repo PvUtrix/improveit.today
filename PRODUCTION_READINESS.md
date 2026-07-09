@@ -25,7 +25,7 @@
 1. ~~**Trust boundary — identity spoofable.**~~ **RESOLVED 2026-07-09.** Gateway propagates verified identity via `x-user-*` headers (client values stripped); services never trust body `userId` when gateway identity is present. Note: services still accept body `userId` on direct (non-gateway) calls for dev convenience — in production, services must only be reachable through the gateway (they are ClusterIP-only in k8s).
 2. ~~**No ownership/authorization checks.**~~ **RESOLVED 2026-07-09.** Ownership + role gates on all mutating routes; proven by `tests/e2e/authz.mjs`.
 3. **Payments are mocked (HIGH before real money).** `paymentProvider.ts` is a mock; Stripe keys are scaffolded but unwired. The provider webhook does not verify signatures. Do not process real funds until Stripe is integrated with signature-verified webhooks and idempotency keys.
-4. **No TLS/Ingress (MEDIUM).** Manifests expose the gateway as a LoadBalancer on 8000; add an Ingress with cert-manager for HTTPS, HSTS via helmet config.
+4. **TLS/Ingress — manifests authored, not yet applied (MEDIUM).** `deployment/kubernetes/ingress/` now has an nginx Ingress (TLS for `improveit.today` + `api.improveit.today`, HTTP→HTTPS redirect) and cert-manager `ClusterIssuer`s (Let's Encrypt staging + prod); the gateway Service is now `ClusterIP` so the Ingress is the only public entry point, and a `web-app` Deployment/Service was added to back the SPA route. HSTS ships by default via `helmet()`. Remaining: install nginx-ingress + cert-manager on the cluster, point DNS, `kubectl apply`, then flip the issuer annotation staging→prod. Not runtime-verifiable without a cluster.
 5. ~~**No refresh-token flow.**~~ **RESOLVED 2026-07-09.** Rotating refresh tokens (hashed in `sessions`), `/auth/refresh` + `/auth/logout`, and silent 401-triggered refresh in the web app; proven by `tests/e2e/auth-refresh.mjs`. Remaining hardening: move the refresh token to an httpOnly cookie (currently in `localStorage` via the persisted store — acceptable for MVP, XSS-exposed at scale) and add a "revoke all sessions" path.
 6. **Observability (MEDIUM).** Winston console logs only. No metrics, tracing, or error reporting (SENTRY_DSN scaffolded, unused). Minimum: structured JSON logs + a `/metrics` endpoint or Sentry wiring.
 7. ~~**No CI.**~~ **RESOLVED 2026-07-09.** GitHub Actions runs lint + strict build + both E2E suites (PostGIS service container, seven live services) on every push/PR to main/develop. Remaining: no unit-test infrastructure (the scaffolded `jest` scripts have no jest installed and no tests) — E2E is the current safety net.
@@ -39,7 +39,7 @@
 - [x] CI pipeline (lint + build + E2E) — *done 2026-07-09*
 - [ ] Generate a strong `JWT_SECRET`; create `gateway-secrets` + `db-credentials` k8s secrets
 - [ ] Set `CORS_ORIGIN` to the real web origin (manifest defaults to `https://improveit.today`)
-- [ ] Ingress + TLS in front of the gateway
+- [~] Ingress + TLS in front of the gateway — *manifests authored 2026-07-09 (`deployment/kubernetes/ingress/`); needs cluster apply + DNS*
 - [ ] Sentry (or equivalent) wired in gateway + services
 - [x] Refresh-token flow (rotating, revocable) — *done 2026-07-09*
 - [ ] Stripe + signature-verified webhooks before enabling real payments (mock provider is fine for pilots with no real money)
