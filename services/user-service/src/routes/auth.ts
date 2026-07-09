@@ -1,11 +1,19 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { successResponse, errorResponse } from '@improveit/common';
 import { logger } from '../utils/logger';
+import { issueTokens, rotateRefreshToken, revokeRefreshToken } from '../utils/tokens';
 
 const router = Router();
+
+// Best-effort request metadata for session auditing.
+function sessionMeta(req: import('express').Request) {
+  return {
+    userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
+    ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || undefined,
+  };
+}
 
 // Register
 router.post('/register', async (req, res) => {
@@ -58,14 +66,9 @@ router.post('/register', async (req, res) => {
 
     logger.info(`User registered: ${email}`);
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET!,
-      { expiresIn: (process.env.JWT_EXPIRY || '15m') as jwt.SignOptions['expiresIn'] }
-    );
+    const tokens = await issueTokens(user, sessionMeta(req));
 
-    return res.status(201).json(successResponse({ user, token }));
+    return res.status(201).json(successResponse({ user, ...tokens }));
   } catch (error: any) {
     logger.error('Registration error:', error);
     return res.status(500).json(
@@ -114,11 +117,9 @@ router.post('/login', async (req, res) => {
       );
     }
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET!,
-      { expiresIn: (process.env.JWT_EXPIRY || '15m') as jwt.SignOptions['expiresIn'] }
+    const tokens = await issueTokens(
+      { id: user.id, email: user.email, role: user.role },
+      sessionMeta(req)
     );
 
     logger.info(`User logged in: ${email}`);
@@ -130,12 +131,61 @@ router.post('/login', async (req, res) => {
         username: user.username,
         role: user.role,
       },
-      token
+      ...tokens,
     }));
   } catch (error: any) {
     logger.error('Login error:', error);
     return res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'Login failed')
+    );
+  }
+});
+
+// Exchange a valid refresh token for a new access token (rotates the
+// refresh token). Works even when the access token has expired.
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json(
+        errorResponse('VALIDATION_ERROR', 'Missing refreshToken')
+      );
+    }
+
+    const result = await rotateRefreshToken(refreshToken, sessionMeta(req));
+    if (!result) {
+      return res.status(401).json(
+        errorResponse('UNAUTHORIZED', 'Invalid or expired refresh token')
+      );
+    }
+
+    // Include the up-to-date user so clients can refresh their cached copy.
+    const userRow = await db.query(
+      'SELECT id, email, username, role FROM users WHERE id = $1',
+      [result.user.id]
+    );
+
+    return res.json(successResponse({ user: userRow.rows[0], ...result.tokens }));
+  } catch (error: any) {
+    logger.error('Refresh error:', error);
+    return res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'Token refresh failed')
+    );
+  }
+});
+
+// Revoke a refresh token (logout). Idempotent.
+router.post('/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken);
+    }
+    return res.json(successResponse({ loggedOut: true }));
+  } catch (error: any) {
+    logger.error('Logout error:', error);
+    return res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'Logout failed')
     );
   }
 });

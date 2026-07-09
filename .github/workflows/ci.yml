@@ -101,6 +101,9 @@ jobs:
       - name: E2E — authorization & anti-spoofing
         run: node tests/e2e/authz.mjs "ci_$GITHUB_RUN_ID"
 
+      - name: E2E — refresh tokens (issue / rotate / revoke)
+        run: node tests/e2e/auth-refresh.mjs "ci_$GITHUB_RUN_ID"
+
       - name: Dump service logs on failure
         if: failure()
         run: tail -n 50 /tmp/svclogs/*.log

@@ -69,7 +69,13 @@ const services: { path: string; target?: string; rewriteTo?: string }[] = [
 ];
 
 // Apply auth middleware to protected routes
-const publicRoutes = ['/api/auth/login', '/api/auth/register', '/health'];
+const publicRoutes = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/logout',
+  '/health',
+];
 
 app.use((req, res, next) => {
   const isPublicRoute = publicRoutes.some(route => req.path.startsWith(route));

@@ -17,6 +17,36 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// On a 401 (expired access token), transparently refresh once and retry the
+// original request. Concurrent 401s share a single in-flight refresh so we
+// don't spend the rotating refresh token more than once.
+let refreshInFlight: Promise<string | null> | null = null;
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
+
+    if (status === 401 && original && !original._retried) {
+      original._retried = true;
+      if (!refreshInFlight) {
+        refreshInFlight = useAuth.getState().refresh().finally(() => {
+          refreshInFlight = null;
+        });
+      }
+      const newToken = await refreshInFlight;
+      if (newToken) {
+        original.headers = original.headers ?? {};
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // Unwrap the platform's { success, data } envelope.
 async function unwrap<T>(p: Promise<{ data: { data: T } }>): Promise<T> {
   const res = await p;
