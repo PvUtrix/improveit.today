@@ -52,23 +52,67 @@ const redisUrl =
 const redisClient = redisUrl
   ? createClient({
       url: redisUrl,
-      socket: { reconnectStrategy: (retries) => Math.min(retries * 200, 3000) },
+      socket: {
+        connectTimeout: 3000,
+        // Bounded reconnect: after a handful of failures give up rather than
+        // retry forever, so a Redis outage never wedges startup.
+        reconnectStrategy: (retries) =>
+          retries > 5 ? new Error('Redis unreachable') : Math.min(retries * 200, 1000),
+      },
     })
   : null;
+let redisReady = false;
 if (redisClient) {
   redisClient.on('error', (err) => logger.error('Rate-limit Redis error:', err));
 }
 
 function makeStore(prefix: string) {
-  if (!redisClient) return undefined; // express-rate-limit defaults to memory
+  // Only use Redis once a connection is established — the RedisStore
+  // constructor pings Redis, so building it against a closed client throws.
+  // When Redis is unset or unreachable we fall through to per-pod memory.
+  if (!redisClient || !redisReady) return undefined;
   return new RedisStore({
     sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     prefix,
   });
 }
 
-// Global limiter — a coarse flood guard across every route.
-const limiter = rateLimit({
+// The RedisStore pings Redis in its constructor, so the client must be
+// connected before any limiter is built. Everything from the limiters through
+// app.listen therefore runs inside this async bootstrap.
+async function main() {
+  if (redisClient) {
+    // Fail fast: never let a Redis outage wedge startup. Race the connect
+    // against a timeout; on failure, tear the client down and fall through to
+    // the in-memory limiter store.
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const connectPromise = redisClient.connect();
+    // If the timeout wins the race, connect() may still reject later — swallow
+    // that so it isn't an unhandled rejection.
+    connectPromise.catch(() => undefined);
+    try {
+      await Promise.race([
+        connectPromise,
+        new Promise((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('Redis connect timeout')), 4000);
+        }),
+      ]);
+      redisReady = true;
+      logger.info('Rate limiter backed by Redis (shared across replicas)');
+    } catch (err) {
+      logger.error('Redis connect failed; rate limiter falls back to memory:', err);
+      try {
+        await redisClient.disconnect();
+      } catch {
+        /* already closed */
+      }
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
+  }
+
+  // Global limiter — a coarse flood guard across every route.
+  const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
   standardHeaders: true,
@@ -241,23 +285,17 @@ app.use((_req, res) => {
   });
 });
 
-// Start server. Connect Redis first (if configured) so the limiter store is
-// ready before the first request; a failed connect logs and falls through to
-// per-pod memory rather than blocking startup.
-(async () => {
-  if (redisClient) {
-    try {
-      await redisClient.connect();
-      logger.info('Rate limiter backed by Redis (shared across replicas)');
-    } catch (err) {
-      logger.error('Redis connect failed; rate limiter falls back to memory:', err);
-    }
-  }
+  // Start server (inside main so it listens only after Redis is ready).
   app.listen(PORT, () => {
     logger.info(`API Gateway running on port ${PORT}`);
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   });
-})();
+}
+
+main().catch((err) => {
+  logger.error('Gateway failed to start:', err);
+  process.exit(1);
+});
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
