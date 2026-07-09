@@ -1,6 +1,6 @@
 # Production Readiness — Status & Gaps
 
-**Last verified:** 2026-07-09 (CI E2E on PostGIS: lifecycle 13/13 + authz 16/16 + refresh 8/8)
+**Last verified:** 2026-07-09 (CI E2E on PostGIS: lifecycle 13/13 + authz 16/16 + refresh 8/8 + rate-limit 3/3)
 
 ## ✅ Verified working (not just written — exercised)
 
@@ -11,11 +11,12 @@
 | Ownership & role checks | Problems (modify/delete), bids (submit-as-self, accept by problem owner, withdraw by bid owner), campaigns (cancel), escrow release, solver verification, profiles — all gated (`canActOn`) |
 | Authorization E2E | `tests/e2e/authz.mjs` — 16/16: spoofed body `userId` ignored on create/vote; non-owners get 403 on resolve/delete/accept/withdraw/profile-edit; owners still succeed |
 | Refresh tokens | `tests/e2e/auth-refresh.mjs` — 8/8: register/login issue rotating refresh tokens (stored SHA-256-hashed in `sessions`); `/auth/refresh` rotates + invalidates the consumed token; `/auth/logout` revokes; web app refreshes silently on 401 |
-| CI | `.github/workflows/ci.yml` — lint + strict build on every push/PR, plus the two E2E suites against a PostGIS service container with all seven services booted |
+| CI | `.github/workflows/ci.yml` — lint + strict build on every push/PR, plus four E2E suites (lifecycle, authz, refresh, rate-limit) against a PostGIS service container with all seven services booted |
 | Production builds | `npx turbo run build` — 16/16 packages compile with strict tsc |
 | Web app | `tsc --noEmit` clean; production Vite build succeeds; auth, report, dashboard, detail flows render verified in browser |
 | Infrastructure bring-up | `docker compose up` → PostGIS 3.3 with full schema auto-applied (20 tables + `vote_aggregates` matview), Kafka, Redis healthy |
-| Gateway | JWT auth on all non-public routes, helmet, rate limiting, CORS; proxied POST/PATCH bodies fixed (`fixRequestBody`) |
+| Gateway | JWT auth on all non-public routes, helmet, CORS; proxied POST/PATCH bodies fixed (`fixRequestBody`) |
+| Rate limiting | Global flood guard (100/min) + strict per-IP limiter on `/api/auth/{login,register,refresh}` (20 / 15 min, brute-force guard); both return the platform 429 envelope. Proven by `tests/e2e/rate-limit.mjs` |
 | Secrets hygiene | No hardcoded secrets in source; all via env; k8s manifests use `secretKeyRef` |
 | Container/deploy assets | Dockerfile per service (13); k8s manifest per core service (10) with health probes + resource limits; gateway env covers all routed services |
 
@@ -28,7 +29,7 @@
 5. ~~**No refresh-token flow.**~~ **RESOLVED 2026-07-09.** Rotating refresh tokens (hashed in `sessions`), `/auth/refresh` + `/auth/logout`, and silent 401-triggered refresh in the web app; proven by `tests/e2e/auth-refresh.mjs`. Remaining hardening: move the refresh token to an httpOnly cookie (currently in `localStorage` via the persisted store — acceptable for MVP, XSS-exposed at scale) and add a "revoke all sessions" path.
 6. **Observability (MEDIUM).** Winston console logs only. No metrics, tracing, or error reporting (SENTRY_DSN scaffolded, unused). Minimum: structured JSON logs + a `/metrics` endpoint or Sentry wiring.
 7. ~~**No CI.**~~ **RESOLVED 2026-07-09.** GitHub Actions runs lint + strict build + both E2E suites (PostGIS service container, seven live services) on every push/PR to main/develop. Remaining: no unit-test infrastructure (the scaffolded `jest` scripts have no jest installed and no tests) — E2E is the current safety net.
-8. **Rate limiting is per-pod memory (LOW).** With `replicas: 2` the effective limit doubles and resets on deploy; back it with Redis (`rate-limit-redis`).
+8. **Rate limiting is per-pod memory (LOW).** Auth brute-force limiter is in place (item above), but it's per-pod: with `replicas: 2` the effective limit doubles and resets on deploy. Back it with Redis (`rate-limit-redis`) so the budget is shared across pods.
 9. **Vote matview refresh on every vote (LOW at MVP scale).** `REFRESH MATERIALIZED VIEW CONCURRENTLY` per vote won't scale; move to a debounced job or trigger-maintained aggregates.
 10. **Media upload unwired (LOW).** Backend accepts `mediaUrls`; media-service and MinIO exist but the web/bot flows don't upload photos yet.
 
