@@ -44,8 +44,21 @@ jobs:
         ports:
           - 5432:5432
 
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     env:
       DATABASE_URL: postgresql://improveit:dev-password@localhost:5432/improveit_dev
+      # Exercises the Redis-backed rate limiter path (shared across replicas).
+      REDIS_HOST: localhost
+      REDIS_PORT: '6379'
       JWT_SECRET: ci-only-secret
       JWT_EXPIRY: 15m
       API_GATEWAY_PORT: '8000'
@@ -118,6 +131,9 @@ jobs:
           echo "checking x-request-id echo ..."
           rid=$(curl -sf -D - -o /dev/null http://localhost:8000/health | tr -d '\r' | awk 'tolower($1)=="x-request-id:"{print $2}')
           test -n "$rid" && echo "  ✓ response carried x-request-id: $rid"
+          echo "checking Redis-backed rate limiter ..."
+          grep -q "backed by Redis" /tmp/svclogs/api-gateway.log \
+            && echo "  ✓ rate limiter initialized against Redis"
 
       # MUST be last: exhausts the auth limiter budget for the runner IP.
       - name: E2E — auth rate limiting (brute-force guard)

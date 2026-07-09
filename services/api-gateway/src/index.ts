@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import { createClient } from 'redis';
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
@@ -38,12 +40,40 @@ const rateLimited = (message: string) => ({
   body: { success: false, error: { code: 'RATE_LIMITED', message } },
 });
 
+// Back the limiters with Redis when configured, so the budget is shared
+// across gateway replicas (in-memory counters would let N pods serve N× the
+// limit and reset on every deploy). Falls back to per-pod memory when
+// REDIS_HOST/REDIS_URL is unset.
+const redisUrl =
+  process.env.REDIS_URL ||
+  (process.env.REDIS_HOST
+    ? `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT || 6379}`
+    : null);
+const redisClient = redisUrl
+  ? createClient({
+      url: redisUrl,
+      socket: { reconnectStrategy: (retries) => Math.min(retries * 200, 3000) },
+    })
+  : null;
+if (redisClient) {
+  redisClient.on('error', (err) => logger.error('Rate-limit Redis error:', err));
+}
+
+function makeStore(prefix: string) {
+  if (!redisClient) return undefined; // express-rate-limit defaults to memory
+  return new RedisStore({
+    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+    prefix,
+  });
+}
+
 // Global limiter — a coarse flood guard across every route.
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('rl:global:'),
   handler: (_req, res) => {
     const r = rateLimited('Too many requests from this IP, please try again later.');
     res.status(r.status).json(r.body);
@@ -58,6 +88,7 @@ const authLimiter = rateLimit({
   max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '20'),
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('rl:auth:'),
   handler: (_req, res) => {
     const r = rateLimited('Too many authentication attempts. Please wait and try again.');
     res.status(r.status).json(r.body);
@@ -210,14 +241,29 @@ app.use((_req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  logger.info(`API Gateway running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Start server. Connect Redis first (if configured) so the limiter store is
+// ready before the first request; a failed connect logs and falls through to
+// per-pod memory rather than blocking startup.
+(async () => {
+  if (redisClient) {
+    try {
+      await redisClient.connect();
+      logger.info('Rate limiter backed by Redis (shared across replicas)');
+    } catch (err) {
+      logger.error('Redis connect failed; rate limiter falls back to memory:', err);
+    }
+  }
+  app.listen(PORT, () => {
+    logger.info(`API Gateway running on port ${PORT}`);
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+})();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  if (redisClient?.isOpen) {
+    await redisClient.quit().catch(() => undefined);
+  }
   process.exit(0);
 });

@@ -3,6 +3,7 @@ import { db } from '../db';
 import { successResponse, errorResponse, getAuthUser } from '@improveit/common';
 import { logger } from '../utils/logger';
 import { publishEvent } from '../utils/kafka';
+import { computeStats, scheduleAggregateRefresh } from '../utils/voteStats';
 
 const router = Router();
 
@@ -58,16 +59,10 @@ router.post('/', async (req, res) => {
       vote = result.rows[0];
     }
 
-    // Refresh materialized view
-    await db.query('REFRESH MATERIALIZED VIEW CONCURRENTLY vote_aggregates');
-
-    // Get updated vote count
-    const aggregates = await db.query(
-      'SELECT upvotes, downvotes, score FROM vote_aggregates WHERE problem_id = $1',
-      [problemId]
-    );
-
-    const stats = aggregates.rows[0] || { upvotes: 0, downvotes: 0, score: 0 };
+    // Exact live counts for the response; the matview (trending) refreshes
+    // lazily so a hot problem doesn't trigger a refresh per vote.
+    const stats = await computeStats(problemId);
+    scheduleAggregateRefresh();
 
     // Publish event
     await publishEvent({
@@ -119,8 +114,7 @@ router.delete('/', async (req, res) => {
       );
     }
 
-    // Refresh materialized view
-    await db.query('REFRESH MATERIALIZED VIEW CONCURRENTLY vote_aggregates');
+    scheduleAggregateRefresh();
 
     logger.info(`Vote removed: problem ${problemId} by user ${userId}`);
 
@@ -138,16 +132,8 @@ router.get('/problem/:problemId', async (req, res) => {
   try {
     const { problemId } = req.params;
 
-    const result = await db.query(
-      'SELECT upvotes, downvotes, score FROM vote_aggregates WHERE problem_id = $1',
-      [problemId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.json(successResponse({ upvotes: 0, downvotes: 0, score: 0 }));
-    }
-
-    return res.json(successResponse(result.rows[0]));
+    // Exact live counts (not the lazily-refreshed matview).
+    return res.json(successResponse(await computeStats(problemId)));
   } catch (error: any) {
     logger.error('Get votes error:', error);
     return res.status(500).json(
