@@ -1,6 +1,6 @@
 # Production Readiness — Status & Gaps
 
-**Last verified:** 2026-07-09 (full-stack E2E: lifecycle 13/13 + authz 16/16)
+**Last verified:** 2026-07-09 (CI E2E on PostGIS: lifecycle 13/13 + authz 16/16 + refresh 8/8)
 
 ## ✅ Verified working (not just written — exercised)
 
@@ -10,6 +10,7 @@
 | Identity propagation | Gateway strips client-supplied `x-user-*` headers and injects the verified JWT identity; services take the acting user from those headers, never from the body (`getAuthUser` in `@improveit/common`) |
 | Ownership & role checks | Problems (modify/delete), bids (submit-as-self, accept by problem owner, withdraw by bid owner), campaigns (cancel), escrow release, solver verification, profiles — all gated (`canActOn`) |
 | Authorization E2E | `tests/e2e/authz.mjs` — 16/16: spoofed body `userId` ignored on create/vote; non-owners get 403 on resolve/delete/accept/withdraw/profile-edit; owners still succeed |
+| Refresh tokens | `tests/e2e/auth-refresh.mjs` — 8/8: register/login issue rotating refresh tokens (stored SHA-256-hashed in `sessions`); `/auth/refresh` rotates + invalidates the consumed token; `/auth/logout` revokes; web app refreshes silently on 401 |
 | CI | `.github/workflows/ci.yml` — lint + strict build on every push/PR, plus the two E2E suites against a PostGIS service container with all seven services booted |
 | Production builds | `npx turbo run build` — 16/16 packages compile with strict tsc |
 | Web app | `tsc --noEmit` clean; production Vite build succeeds; auth, report, dashboard, detail flows render verified in browser |
@@ -24,7 +25,7 @@
 2. ~~**No ownership/authorization checks.**~~ **RESOLVED 2026-07-09.** Ownership + role gates on all mutating routes; proven by `tests/e2e/authz.mjs`.
 3. **Payments are mocked (HIGH before real money).** `paymentProvider.ts` is a mock; Stripe keys are scaffolded but unwired. The provider webhook does not verify signatures. Do not process real funds until Stripe is integrated with signature-verified webhooks and idempotency keys.
 4. **No TLS/Ingress (MEDIUM).** Manifests expose the gateway as a LoadBalancer on 8000; add an Ingress with cert-manager for HTTPS, HSTS via helmet config.
-5. **No refresh-token flow (MEDIUM).** 15-minute JWTs with no refresh endpoint = users re-login every 15 minutes (web app stores the token but it silently expires). Implement `/api/auth/refresh` (the `sessions` table already exists) or lengthen expiry consciously.
+5. ~~**No refresh-token flow.**~~ **RESOLVED 2026-07-09.** Rotating refresh tokens (hashed in `sessions`), `/auth/refresh` + `/auth/logout`, and silent 401-triggered refresh in the web app; proven by `tests/e2e/auth-refresh.mjs`. Remaining hardening: move the refresh token to an httpOnly cookie (currently in `localStorage` via the persisted store — acceptable for MVP, XSS-exposed at scale) and add a "revoke all sessions" path.
 6. **Observability (MEDIUM).** Winston console logs only. No metrics, tracing, or error reporting (SENTRY_DSN scaffolded, unused). Minimum: structured JSON logs + a `/metrics` endpoint or Sentry wiring.
 7. ~~**No CI.**~~ **RESOLVED 2026-07-09.** GitHub Actions runs lint + strict build + both E2E suites (PostGIS service container, seven live services) on every push/PR to main/develop. Remaining: no unit-test infrastructure (the scaffolded `jest` scripts have no jest installed and no tests) — E2E is the current safety net.
 8. **Rate limiting is per-pod memory (LOW).** With `replicas: 2` the effective limit doubles and resets on deploy; back it with Redis (`rate-limit-redis`).
@@ -39,7 +40,7 @@
 - [ ] Set `CORS_ORIGIN` to the real web origin (manifest defaults to `https://improveit.today`)
 - [ ] Ingress + TLS in front of the gateway
 - [ ] Sentry (or equivalent) wired in gateway + services
-- [ ] Refresh-token flow (or explicit expiry decision)
+- [x] Refresh-token flow (rotating, revocable) — *done 2026-07-09*
 - [ ] Stripe + signature-verified webhooks before enabling real payments (mock provider is fine for pilots with no real money)
 - [ ] Load-test the vote path; debounce matview refresh if needed
 
