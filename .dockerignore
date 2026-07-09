@@ -1,0 +1,24 @@
+# Build context is the repo root for every image. Keep it lean and never ship
+# host-built artifacts into the image (they're rebuilt inside the container).
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/.next
+**/build
+
+.git
+.github
+.env
+.env.*
+!.env.*.example
+
+*.log
+.DS_Store
+
+# Docs / local tooling that no image needs.
+deployment/kubernetes
+marketing
+specs
+*.md
+!interfaces/web-app/README.md

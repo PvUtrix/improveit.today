@@ -1,0 +1,388 @@
+# ===========================================================================
+# ImproveIt.Today — single-stack production deployment for Coolify.
+#
+# Deploy this as ONE Coolify "Docker Compose" resource (Base Directory = /).
+# Everything talks over the internal `improveit` network by service name.
+#
+# PUBLIC surface: ONLY the `web-app` service. Assign the domain
+# improveit.today to it in Coolify → Domains. It reverse-proxies /api to the
+# gateway, so the gateway and all backend/infra services stay internal with
+# NO domain and NO published host ports.
+#
+# All secrets come from the Coolify environment (see .env.coolify.example).
+# ===========================================================================
+
+networks:
+  improveit:
+    name: improveit
+
+volumes:
+  postgres-data:
+  redis-data:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
+  elasticsearch-data:
+  minio-data:
+
+services:
+  # ------------------------------------------------------------------ infra
+  postgres:
+    image: postgis/postgis:15-3.3
+    restart: unless-stopped
+    networks: [improveit]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Applies 001_initial_schema.sql on FIRST boot (empty volume) only.
+      # For an existing/managed DB, run `npm run db:migrate` instead.
+      - ./packages/database/schemas:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [improveit]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    restart: unless-stopped
+    networks: [improveit]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Single internal listener — brokers are reachable only on the Docker
+      # network as kafka:29092. No host/PLAINTEXT_HOST listener in production.
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  elasticsearch:
+    image: elasticsearch:8.9.0
+    restart: unless-stopped
+    networks: [improveit]
+    environment:
+      - discovery.type=single-node
+      # Internal-only (no host ports, no domain). Enabling xpack security is a
+      # recommended hardening follow-up once search-service actually uses ES.
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    networks: [improveit]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # -------------------------------------------------------------- api gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      API_GATEWAY_PORT: "8000"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS}
+      AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX}
+      USER_SERVICE_URL: http://user-service:8001
+      PROBLEM_SERVICE_URL: http://problem-service:8002
+      VOTING_SERVICE_URL: http://voting-service:8003
+      GEOLOCATION_SERVICE_URL: http://geolocation-service:8004
+      AUTHORITY_SERVICE_URL: http://authority-service:8005
+      PAYMENT_SERVICE_URL: http://payment-service:8006
+      BIDDING_SERVICE_URL: http://bidding-service:8007
+      NOTIFICATION_SERVICE_URL: http://notification-service:8008
+      SEARCH_SERVICE_URL: http://search-service:8009
+      MEDIA_SERVICE_URL: http://media-service:8010
+      ANALYTICS_SERVICE_URL: http://analytics-service:8011
+      MODERATION_SERVICE_URL: http://moderation-service:8012
+
+  # ------------------------------------------------------------- app services
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      PORT: "8001"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY}
+
+  problem-service:
+    build:
+      context: .
+      dockerfile: services/problem-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8002"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+  voting-service:
+    build:
+      context: .
+      dockerfile: services/voting-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8003"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID}
+      VOTE_AGG_REFRESH_MS: ${VOTE_AGG_REFRESH_MS}
+
+  geolocation-service:
+    build:
+      context: .
+      dockerfile: services/geolocation-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8004"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      NOMINATIM_URL: ${NOMINATIM_URL}
+
+  authority-service:
+    build:
+      context: .
+      dockerfile: services/authority-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8005"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID}
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8006"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+
+  bidding-service:
+    build:
+      context: .
+      dockerfile: services/bidding-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8007"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID}
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8008"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KAFKA_BROKERS: kafka:29092
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL}
+      SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+
+  search-service:
+    build:
+      context: .
+      dockerfile: services/search-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on: [elasticsearch]
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8009"
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+
+  media-service:
+    build:
+      context: .
+      dockerfile: services/media-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8010"
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      CDN_URL: ${CDN_URL}
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8011"
+
+  moderation-service:
+    build:
+      context: .
+      dockerfile: services/moderation-service/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: "8012"
+
+  # --------------------------------------------------------------- interfaces
+  web-app:
+    build:
+      context: .
+      dockerfile: interfaces/web-app/Dockerfile
+      args:
+        # Vite inlines this at build time. Rebuild to change it.
+        VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN}
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on: [api-gateway]
+    # This is the ONLY public service. In Coolify → this service → Domains,
+    # set https://improveit.today (Traefik provisions the TLS cert). Coolify
+    # routes the domain to port 80 below.
+    expose:
+      - "80"
+
+  # Optional — remove or leave unset if you're not running the bot yet.
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: interfaces/telegram-bot/Dockerfile
+    restart: unless-stopped
+    networks: [improveit]
+    depends_on: [api-gateway]
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      API_GATEWAY_URL: http://api-gateway:8000
